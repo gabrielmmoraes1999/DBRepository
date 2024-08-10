@@ -4,6 +4,7 @@ import org.example.database.annotation.Column;
 import org.example.database.annotation.PrimaryKey;
 import org.example.database.annotation.Query;
 import org.example.database.annotation.Table;
+import org.example.database.annotation.Update;
 import org.example.database.sql.InsertSQL;
 import org.example.database.sql.QuerySQL;
 import org.example.database.sql.UpdateSQL;
@@ -60,6 +61,8 @@ public class Repository<T, ID> implements InvocationHandler {
             } else {
                 return executeQuery(query);
             }
+        } else if (method.isAnnotationPresent(Update.class)) {
+            return this.execute(new QuerySQL(method, args).getUpdate());
         }
 
         return null;

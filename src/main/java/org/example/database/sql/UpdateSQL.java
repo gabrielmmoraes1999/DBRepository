@@ -8,9 +8,13 @@ import java.lang.reflect.Field;
 
 public class UpdateSQL {
 
-    private final String sql;
+    private final Object entity;
 
-    public UpdateSQL(Object entity) throws IllegalAccessException {
+    public UpdateSQL(Object entity) {
+        this.entity = entity;
+    }
+
+    public String get() throws IllegalAccessException {
         Class<?> entityClass = entity.getClass();
 
         Table table = entityClass.getAnnotation(Table.class);
@@ -60,11 +64,7 @@ public class UpdateSQL {
             sqlBuilder.append(idValue);
         }
 
-        this.sql = sqlBuilder.toString();
-    }
-
-    public String get() {
-        return this.sql;
+        return sqlBuilder.toString();
     }
 }
 
