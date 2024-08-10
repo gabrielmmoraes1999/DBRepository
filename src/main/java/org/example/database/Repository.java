@@ -35,19 +35,6 @@ public class Repository<T, ID> implements InvocationHandler {
     @SuppressWarnings("unchecked")
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
 
-        switch (method.getName()) {
-            case "save":
-                return save((T) args[0]);
-            case "findById":
-                return findById((ID) args[0]);
-            case "findAll":
-                return findAll();
-            case "delete":
-                return delete((ID) args[0]);
-            default:
-                break;
-        }
-
         if (method.isAnnotationPresent(Query.class)) {
             Query queryAnnotation = method.getAnnotation(Query.class);
             String query = new QuerySQL(method, args).get();
@@ -63,6 +50,19 @@ public class Repository<T, ID> implements InvocationHandler {
             }
         } else if (method.isAnnotationPresent(Update.class)) {
             return this.execute(new QuerySQL(method, args).getUpdate());
+        }
+
+        switch (method.getName()) {
+            case "save":
+                return save((T) args[0]);
+            case "findById":
+                return findById((ID) args[0]);
+            case "findAll":
+                return findAll();
+            case "delete":
+                return delete((ID) args[0]);
+            default:
+                break;
         }
 
         return null;
