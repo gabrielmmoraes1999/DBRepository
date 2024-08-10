@@ -46,7 +46,13 @@ public class Repository<T, ID> implements InvocationHandler {
                     return executeQuerySingleEntity(query, entityClass);
                 }
             } else {
-                return executeQuery(query);
+                if (method.getReturnType().isAssignableFrom(List.class)) {
+                    return executeQueryListMap(query);
+                } else if (method.getReturnType().isAssignableFrom(Map.class)) {
+                    return executeQueryMap(query);
+                } else {
+                    return executeQuerySingleResult(query, method.getReturnType());
+                }
             }
         } else if (method.isAnnotationPresent(Update.class)) {
             return this.execute(new QuerySQL(method, args).getUpdate());
@@ -240,7 +246,30 @@ public class Repository<T, ID> implements InvocationHandler {
         return entity;
     }
 
-    private List<Map<String, Object>> executeQuery(String sql) {
+    private Map<String, Object> executeQueryMap(String sql) {
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+
+            if (resultSet.next()) {
+                int columnCount = resultSet.getMetaData().getColumnCount();
+
+                for (int i = 1; i <= columnCount; i++) {
+                    String columnName = resultSet.getMetaData().getColumnLabel(i);
+                    Object columnValue = resultSet.getObject(i);
+                    result.put(columnName, columnValue);
+                }
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return result;
+    }
+
+    private List<Map<String, Object>> executeQueryListMap(String sql) {
         List<Map<String, Object>> resultList = new ArrayList<>();
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
@@ -264,6 +293,21 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         return resultList;
+    }
+
+    private <R> R executeQuerySingleResult(String sql, Class<R> returnType) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
+             ResultSet resultSet = preparedStatement.executeQuery()) {
+
+            if (resultSet.next()) {
+                return resultSet.getObject(1, returnType);
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return null;
     }
 
     private T save(T entity) {
