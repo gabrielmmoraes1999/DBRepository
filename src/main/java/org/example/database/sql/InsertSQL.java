@@ -1,7 +1,7 @@
 package org.example.database.sql;
 
 import org.example.database.annotation.Column;
-import org.example.database.annotation.IgnoreVariableSQL;
+import org.example.database.annotation.IgnoreSQL;
 import org.example.database.annotation.Table;
 
 import java.lang.reflect.Field;
@@ -29,7 +29,7 @@ public class InsertSQL {
         Field[] fields = clazz.getDeclaredFields();
         boolean firstField = true;
         for (Field field : fields) {
-            if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreVariableSQL.class)) {
+            if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
                 if (!firstField) {
                     sql.append(", ");
                 }
@@ -43,7 +43,7 @@ public class InsertSQL {
 
         firstField = true;
         for (Field field : fields) {
-            if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreVariableSQL.class)) {
+            if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
                 if (!firstField) {
                     sql.append(", ");
                 }
