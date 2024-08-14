@@ -12,6 +12,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+enum TypeSQL {
+    INSERT,
+    UPDATE
+}
+
 public class Repository<T, ID> implements InvocationHandler {
 
     private final Class<T> entityClass;
@@ -347,9 +352,9 @@ public class Repository<T, ID> implements InvocationHandler {
             }
 
             if (count > 0) {
-                this.execute(new UpdateSQL(entity).get());
+                this.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE);
             } else {
-                this.execute(entity, new InsertSQL(entity).get());
+                this.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT);
             }
 
             return entity;
@@ -431,19 +436,49 @@ public class Repository<T, ID> implements InvocationHandler {
         return primaryKeyFields;
     }
 
-    private int execute(T entity, String sql) throws SQLException, IllegalAccessException {
+    private int execute(T entity, String sql, TypeSQL typeSQL) throws SQLException, IllegalAccessException {
         Class<?> clazz = entity.getClass();
         Field[] fields = clazz.getDeclaredFields();
 
         int index = 1;
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            List<Field> primaryKeyList = new ArrayList<>();
 
-            for (Field field : fields) {
-                if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
-                    field.setAccessible(true);
-                    preparedStatement.setObject(index, field.get(entity));
-                    index++;
-                }
+            switch (typeSQL) {
+                case INSERT:
+                    for (Field field : fields) {
+                        if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
+                            field.setAccessible(true);
+                            preparedStatement.setObject(index, field.get(entity));
+                            index++;
+                        }
+                    }
+                    break;
+                case UPDATE:
+                    for (Field field : fields) {
+                        if (field.isAnnotationPresent(PrimaryKey.class)) {
+                            primaryKeyList.add(field);
+                        }
+                    }
+
+                    //Pegar valores das demais colunas e ignorar as PrimaryKeys
+                    for (Field field : fields) {
+                        if (field.isAnnotationPresent(Column.class)
+                                && !field.isAnnotationPresent(IgnoreSQL.class)
+                                && !primaryKeyList.contains(field)) {
+                            field.setAccessible(true);
+                            preparedStatement.setObject(index, field.get(entity));
+                            index++;
+                        }
+                    }
+
+                    //Pegar valores das PrimaryKeys
+                    for (Field field : primaryKeyList) {
+                        field.setAccessible(true);
+                        preparedStatement.setObject(index, field.get(entity));
+                        index++;
+                    }
+                    break;
             }
 
             return preparedStatement.executeUpdate();
