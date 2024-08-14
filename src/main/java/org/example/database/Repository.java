@@ -1,10 +1,6 @@
 package org.example.database;
 
-import org.example.database.annotation.Column;
-import org.example.database.annotation.PrimaryKey;
-import org.example.database.annotation.Query;
-import org.example.database.annotation.Table;
-import org.example.database.annotation.Update;
+import org.example.database.annotation.*;
 import org.example.database.sql.InsertSQL;
 import org.example.database.sql.QuerySQL;
 import org.example.database.sql.UpdateSQL;
@@ -353,7 +349,7 @@ public class Repository<T, ID> implements InvocationHandler {
             if (count > 0) {
                 this.execute(new UpdateSQL(entity).get());
             } else {
-                this.execute(new InsertSQL(entity).get());
+                this.execute(entity, new InsertSQL(entity).get());
             }
 
             return entity;
@@ -433,6 +429,25 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         return primaryKeyFields;
+    }
+
+    private int execute(T entity, String sql) throws SQLException, IllegalAccessException {
+        Class<?> clazz = entity.getClass();
+        Field[] fields = clazz.getDeclaredFields();
+
+        int index = 1;
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            for (Field field : fields) {
+                if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
+                    field.setAccessible(true);
+                    preparedStatement.setObject(index, field.get(entity));
+                    index++;
+                }
+            }
+
+            return preparedStatement.executeUpdate();
+        }
     }
 
     private int execute(String sql) throws SQLException {
