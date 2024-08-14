@@ -47,17 +47,8 @@ public class InsertSQL {
                 if (!firstField) {
                     sql.append(", ");
                 }
-                field.setAccessible(true);
-                Object value = field.get(entity);
-                if (value instanceof String) {
-                    if ("null".equals(value)) {
-                        sql.append("null");
-                    } else {
-                        sql.append("'").append(value).append("'");
-                    }
-                } else {
-                    sql.append(value);
-                }
+
+                sql.append("?");
                 firstField = false;
             }
         }
