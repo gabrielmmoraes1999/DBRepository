@@ -1,5 +1,6 @@
 package org.example.database.sql;
 
+import org.example.database.annotation.Delete;
 import org.example.database.annotation.Param;
 import org.example.database.annotation.Query;
 import org.example.database.annotation.Update;
@@ -64,6 +65,31 @@ public class QuerySQL {
         }
 
         return update;
+    }
+
+    public String getDelete() {
+        Delete updateAnnotation = method.getAnnotation(Delete.class);
+        String delete = updateAnnotation.value();
+
+        if (args != null) {
+            for (int index = 0; index < args.length; index++) {
+                Param paramAnnotation = method.getParameters()[index].getAnnotation(Param.class);
+                if (paramAnnotation != null) {
+                    String paramName = paramAnnotation.value();
+                    String placeholder = ":" + paramName;
+
+                    if (delete.contains(placeholder)) {
+                        if (args[index] instanceof String) {
+                            delete = delete.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else {
+                            delete = delete.replace(placeholder, args[index].toString());
+                        }
+                    }
+                }
+            }
+        }
+
+        return delete;
     }
 
 }
