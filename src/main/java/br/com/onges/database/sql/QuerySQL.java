@@ -7,6 +7,8 @@ import br.com.onges.database.annotation.Update;
 
 import java.lang.reflect.Method;
 import java.sql.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class QuerySQL {
 
@@ -49,6 +51,7 @@ public class QuerySQL {
         return query;
     }
 
+    @Deprecated
     public String getUpdate() {
         Update updateAnnotation = method.getAnnotation(Update.class);
         String update = updateAnnotation.value();
@@ -83,9 +86,47 @@ public class QuerySQL {
         return update;
     }
 
+    public int update(Connection connection) throws SQLException {
+        Update updateAnnotation = method.getAnnotation(Update.class);
+        Map<String, Object> mapValues = new HashMap<>();
+        String update = updateAnnotation.value();
+        update = update.replace(" = ", "=");
+        update = update.replace("=", " = ");
+
+        if (args != null) {
+            for (int index = 0; index < args.length; index++) {
+                Param paramAnnotation = method.getParameters()[index].getAnnotation(Param.class);
+                if (paramAnnotation != null) {
+                    String paramName = paramAnnotation.value();
+                    String placeholder = ":" + paramName;
+
+                    if (update.contains(placeholder)) {
+                        update = update.replace(placeholder, "?");
+                        mapValues.put(paramName, args[index]);
+                    }
+                }
+            }
+        }
+
+        update = String.format("%s;", update);
+        String[] parts = update.split(" = \\?");
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(update)) {
+            for (int index = 0; index < parts.length - 1; index++) {
+                String part = parts[index];
+                String[] words = part.split(" ");
+                String columnName = words[words.length - 1];
+                preparedStatement.setObject(index + 1, mapValues.get(columnName));
+            }
+
+            return preparedStatement.executeUpdate();
+        }
+    }
+
+    @Deprecated
     public String getDelete() {
-        Delete updateAnnotation = method.getAnnotation(Delete.class);
-        String delete = updateAnnotation.value();
+        Delete deleteAnnotation = method.getAnnotation(Delete.class);
+        String delete = deleteAnnotation.value();
 
         if (args != null) {
             for (int index = 0; index < args.length; index++) {
@@ -115,6 +156,43 @@ public class QuerySQL {
         }
 
         return delete;
+    }
+
+    public int delete(Connection connection) throws SQLException {
+        Delete deleteAnnotation = method.getAnnotation(Delete.class);
+        Map<String, Object> mapValues = new HashMap<>();
+        String delete = deleteAnnotation.value();
+        delete = delete.replace(" = ", "=");
+        delete = delete.replace("=", " = ");
+
+        if (args != null) {
+            for (int index = 0; index < args.length; index++) {
+                Param paramAnnotation = method.getParameters()[index].getAnnotation(Param.class);
+                if (paramAnnotation != null) {
+                    String paramName = paramAnnotation.value();
+                    String placeholder = ":" + paramName;
+
+                    if (delete.contains(placeholder)) {
+                        delete = delete.replace(placeholder, "?");
+                        mapValues.put(paramName, args[index]);
+                    }
+                }
+            }
+        }
+
+        delete = String.format("%s;", delete);
+        String[] parts = delete.split(" = \\?");
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(delete)) {
+            for (int index = 0; index < parts.length - 1; index++) {
+                String part = parts[index];
+                String[] words = part.split(" ");
+                String columnName = words[words.length - 1];
+                preparedStatement.setObject(index + 1, mapValues.get(columnName));
+            }
+
+            return preparedStatement.executeUpdate();
+        }
     }
 
     // Método auxiliar para converter byte[] em uma string hexadecimal
