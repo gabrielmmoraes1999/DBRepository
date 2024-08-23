@@ -1,4 +1,4 @@
-package org.example.database;
+package br.com.onges.database;
 
 import java.util.List;
 

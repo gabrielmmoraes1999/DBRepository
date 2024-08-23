@@ -1,14 +1,12 @@
-package org.example.database.sql;
+package br.com.onges.database.sql;
 
-import org.example.database.annotation.Delete;
-import org.example.database.annotation.Param;
-import org.example.database.annotation.Query;
-import org.example.database.annotation.Update;
+import br.com.onges.database.annotation.Delete;
+import br.com.onges.database.annotation.Param;
+import br.com.onges.database.annotation.Query;
+import br.com.onges.database.annotation.Update;
 
 import java.lang.reflect.Method;
 import java.sql.*;
-import java.util.HashMap;
-import java.util.Map;
 
 public class QuerySQL {
 

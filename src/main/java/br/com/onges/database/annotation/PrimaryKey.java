@@ -1,9 +1,8 @@
-package org.example.database.annotation;
+package br.com.onges.database.annotation;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 @Retention(RetentionPolicy.RUNTIME)
-public @interface Delete {
-    String value();
+public @interface PrimaryKey {
 }

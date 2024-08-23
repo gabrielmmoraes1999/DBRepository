@@ -1,9 +1,9 @@
-package org.example.database;
+package br.com.onges.database;
 
-import org.example.database.annotation.*;
-import org.example.database.sql.InsertSQL;
-import org.example.database.sql.QuerySQL;
-import org.example.database.sql.UpdateSQL;
+import br.com.onges.database.annotation.*;
+import br.com.onges.database.sql.InsertSQL;
+import br.com.onges.database.sql.QuerySQL;
+import br.com.onges.database.sql.UpdateSQL;
 
 import java.lang.reflect.*;
 import java.sql.*;

@@ -1,4 +1,4 @@
-package org.example.database;
+package br.com.onges.database;
 
 import java.sql.Connection;
 import java.sql.DriverManager;

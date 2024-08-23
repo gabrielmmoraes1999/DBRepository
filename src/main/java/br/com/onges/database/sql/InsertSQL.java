@@ -1,8 +1,8 @@
-package org.example.database.sql;
+package br.com.onges.database.sql;
 
-import org.example.database.annotation.Column;
-import org.example.database.annotation.IgnoreSQL;
-import org.example.database.annotation.Table;
+import br.com.onges.database.annotation.Column;
+import br.com.onges.database.annotation.IgnoreSQL;
+import br.com.onges.database.annotation.Table;
 
 import java.lang.reflect.Field;
 
