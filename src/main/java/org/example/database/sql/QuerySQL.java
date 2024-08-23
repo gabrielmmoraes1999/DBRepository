@@ -6,6 +6,9 @@ import org.example.database.annotation.Query;
 import org.example.database.annotation.Update;
 
 import java.lang.reflect.Method;
+import java.sql.*;
+import java.util.HashMap;
+import java.util.Map;
 
 public class QuerySQL {
 
@@ -30,6 +33,12 @@ public class QuerySQL {
 
                     if (query.contains(placeholder)) {
                         if (args[index] instanceof String) {
+                            query = query.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof Timestamp) {
+                            query = query.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof Date) {
+                            query = query.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof Time) {
                             query = query.replace(placeholder, "'" + args[index].toString() + "'");
                         } else {
                             query = query.replace(placeholder, args[index].toString());
@@ -56,6 +65,15 @@ public class QuerySQL {
                     if (update.contains(placeholder)) {
                         if (args[index] instanceof String) {
                             update = update.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof Timestamp) {
+                            update = update.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof Date) {
+                            update = update.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof Time) {
+                            update = update.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof byte[]) {
+                            String hexString = bytesToHex((byte[]) args[index]);
+                            update = update.replace(placeholder, "X'" + hexString + "'");
                         } else {
                             update = update.replace(placeholder, args[index].toString());
                         }
@@ -81,6 +99,15 @@ public class QuerySQL {
                     if (delete.contains(placeholder)) {
                         if (args[index] instanceof String) {
                             delete = delete.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof Timestamp) {
+                            delete = delete.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof Date) {
+                            delete = delete.replace(placeholder, "'" + args[index].toString() + "'");
+                        }  else if (args[index] instanceof Time) {
+                            delete = delete.replace(placeholder, "'" + args[index].toString() + "'");
+                        } else if (args[index] instanceof byte[]) {
+                            String hexString = bytesToHex((byte[]) args[index]);
+                            delete = delete.replace(placeholder, "X'" + hexString + "'");
                         } else {
                             delete = delete.replace(placeholder, args[index].toString());
                         }
@@ -90,6 +117,15 @@ public class QuerySQL {
         }
 
         return delete;
+    }
+
+    // Método auxiliar para converter byte[] em uma string hexadecimal
+    private String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
 }
