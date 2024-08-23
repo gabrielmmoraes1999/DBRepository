@@ -123,8 +123,10 @@ public class Repository<T, ID> implements InvocationHandler {
                     throw new IllegalArgumentException("A quantidade de PK inválida.");
                 }
 
+                int index = 1;
                 for (Object value : keys) {
-                    preparedStatement.setObject(keys.indexOf(value) + 1, value);
+                    preparedStatement.setObject(index, value);
+                    index++;
                 }
 
             } else {
@@ -378,6 +380,8 @@ public class Repository<T, ID> implements InvocationHandler {
 
         if (id instanceof List) {
             boolean first = true;
+            @SuppressWarnings("unchecked")
+            List<Object> keys = (List<Object>) id;
 
             for (Field field : entityClass.getDeclaredFields()) {
                 if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
@@ -385,10 +389,15 @@ public class Repository<T, ID> implements InvocationHandler {
                         sql.append(" AND ");
                     }
 
-                    countPk++;
                     Column column = field.getAnnotation(Column.class);
-                    sql.append(column.name()).append(" = ?");
+                    if (keys.get(countPk) == null) {
+                        sql.append(column.name()).append(" IS NULL");
+                    } else {
+                        sql.append(column.name()).append(" = ?");
+                    }
+
                     first = false;
+                    countPk++;
                 }
             }
         } else {
@@ -411,8 +420,12 @@ public class Repository<T, ID> implements InvocationHandler {
                     throw new IllegalArgumentException("A quantidade de PK inválida.");
                 }
 
+                int index = 1;
                 for (Object value : keys) {
-                    preparedStatement.setObject(keys.indexOf(value) + 1, value);
+                    if (value != null) {
+                        preparedStatement.setObject(index, value);
+                        index++;
+                    }
                 }
 
             } else {
