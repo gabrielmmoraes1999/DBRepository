@@ -56,9 +56,9 @@ public class Repository<T, ID> implements InvocationHandler {
                 }
             }
         } else if (method.isAnnotationPresent(Update.class)) {
-            return this.execute(new QuerySQL(method, args).getUpdate());
+            return new QuerySQL(method, args).update(connection);
         } else if (method.isAnnotationPresent(Delete.class)) {
-            return this.execute(new QuerySQL(method, args).getDelete());
+            return new QuerySQL(method, args).delete(connection);
         }
 
         switch (method.getName()) {
