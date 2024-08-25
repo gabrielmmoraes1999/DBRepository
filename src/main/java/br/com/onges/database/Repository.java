@@ -38,21 +38,21 @@ public class Repository<T, ID> implements InvocationHandler {
 
         if (method.isAnnotationPresent(Query.class)) {
             Query queryAnnotation = method.getAnnotation(Query.class);
-            String query = new QuerySQL(method, args).get();
+            PreparedStatement preparedStatement = new QuerySQL(method, args).getPreparedStatement(connection);
 
             if (queryAnnotation.entity()) {
                 if (method.getReturnType().isAssignableFrom(List.class)) {
-                    return executeQueryEntity(query, entityClass);
+                    return executeQueryEntity(preparedStatement, entityClass);
                 } else {
-                    return executeQuerySingleEntity(query, entityClass);
+                    return executeQuerySingleEntity(preparedStatement, entityClass);
                 }
             } else {
                 if (method.getReturnType().isAssignableFrom(List.class)) {
-                    return executeQueryListMap(query);
+                    return executeQueryListMap(preparedStatement);
                 } else if (method.getReturnType().isAssignableFrom(Map.class)) {
-                    return executeQueryMap(query);
+                    return executeQueryMap(preparedStatement);
                 } else {
-                    return executeQuerySingleResult(query, method.getReturnType());
+                    return executeQuerySingleResult(preparedStatement, method.getReturnType());
                 }
             }
         } else if (method.isAnnotationPresent(Update.class)) {
@@ -193,11 +193,10 @@ public class Repository<T, ID> implements InvocationHandler {
         return resultList;
     }
 
-    private List<T> executeQueryEntity(String sql, Class<T> entityClass) {
+    private List<T> executeQueryEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
         List<T> resultList = new ArrayList<>();
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (ResultSet resultSet = preparedStatement.executeQuery()) {
 
             while (resultSet.next()) {
                 T entity = entityClass.getDeclaredConstructor().newInstance();
@@ -216,6 +215,7 @@ public class Repository<T, ID> implements InvocationHandler {
                 resultList.add(entity);
             }
 
+            preparedStatement.close();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -223,11 +223,10 @@ public class Repository<T, ID> implements InvocationHandler {
         return resultList;
     }
 
-    private T executeQuerySingleEntity(String sql, Class<T> entityClass) {
+    private T executeQuerySingleEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
         T entity = null;
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (ResultSet resultSet = preparedStatement.executeQuery()) {
 
             if (resultSet.next()) {
                 entity = entityClass.getDeclaredConstructor().newInstance();
@@ -244,6 +243,7 @@ public class Repository<T, ID> implements InvocationHandler {
                 }
             }
 
+            preparedStatement.close();
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -251,11 +251,10 @@ public class Repository<T, ID> implements InvocationHandler {
         return entity;
     }
 
-    private Map<String, Object> executeQueryMap(String sql) {
+    private Map<String, Object> executeQueryMap(PreparedStatement preparedStatement) {
         Map<String, Object> result = new LinkedHashMap<>();
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (ResultSet resultSet = preparedStatement.executeQuery()) {
 
             if (resultSet.next()) {
                 int columnCount = resultSet.getMetaData().getColumnCount();
@@ -267,6 +266,7 @@ public class Repository<T, ID> implements InvocationHandler {
                 }
             }
 
+            preparedStatement.close();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -274,11 +274,10 @@ public class Repository<T, ID> implements InvocationHandler {
         return result;
     }
 
-    private List<Map<String, Object>> executeQueryListMap(String sql) {
+    private List<Map<String, Object>> executeQueryListMap(PreparedStatement preparedStatement) {
         List<Map<String, Object>> resultList = new ArrayList<>();
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
+        try (ResultSet resultSet = preparedStatement.executeQuery()) {
 
             while (resultSet.next()) {
                 Map<String, Object> row = new LinkedHashMap<>();
@@ -293,6 +292,7 @@ public class Repository<T, ID> implements InvocationHandler {
                 resultList.add(row);
             }
 
+            preparedStatement.close();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
@@ -300,14 +300,12 @@ public class Repository<T, ID> implements InvocationHandler {
         return resultList;
     }
 
-    private <R> R executeQuerySingleResult(String sql, Class<R> returnType) {
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
-
+    private <R> R executeQuerySingleResult(PreparedStatement preparedStatement, Class<R> returnType) {
+        try (ResultSet resultSet = preparedStatement.executeQuery()) {
             if (resultSet.next()) {
                 return resultSet.getObject(1, returnType);
             }
-
+            preparedStatement.close();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

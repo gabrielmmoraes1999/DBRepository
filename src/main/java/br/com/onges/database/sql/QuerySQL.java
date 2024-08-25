@@ -20,6 +20,7 @@ public class QuerySQL {
         this.args = args;
     }
 
+    @Deprecated
     public String get() {
         Query queryAnnotation = method.getAnnotation(Query.class);
         String query = queryAnnotation.value();
@@ -49,6 +50,43 @@ public class QuerySQL {
         }
 
         return query;
+    }
+
+    public PreparedStatement getPreparedStatement(Connection connection) throws SQLException {
+        Query queryAnnotation = method.getAnnotation(Query.class);
+        String query = queryAnnotation.value();
+
+        Map<String, Object> mapValues = new HashMap<>();
+        query = query.replace(" = ", "=");
+        query = query.replace("=", " = ");
+
+        if (args != null) {
+            for (int index = 0; index < args.length; index++) {
+                Param paramAnnotation = method.getParameters()[index].getAnnotation(Param.class);
+                if (paramAnnotation != null) {
+                    String paramName = paramAnnotation.value();
+                    String placeholder = ":" + paramName;
+
+                    if (query.contains(placeholder)) {
+                        query = query.replace(placeholder, "?");
+                        mapValues.put(paramName, args[index]);
+                    }
+                }
+            }
+        }
+
+        query = String.format("%s;", query);
+        String[] parts = query.split(" = \\?");
+
+        PreparedStatement preparedStatement = connection.prepareStatement(query);
+            for (int index = 0; index < parts.length; index++) {
+                String part = parts[index];
+                String[] words = part.split(" ");
+                String columnName = words[words.length - 1];
+                preparedStatement.setObject(index + 1, mapValues.get(columnName));
+            }
+
+        return preparedStatement;
     }
 
     @Deprecated
