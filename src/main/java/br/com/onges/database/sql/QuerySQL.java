@@ -75,16 +75,27 @@ public class QuerySQL {
             }
         }
 
-        query = String.format("%s;", query);
-        String[] parts = query.split(" = \\?");
+        String[] parts = query.split("\\?");
+        int partsLength = query.length() - query.replace("?", "").length();
 
         PreparedStatement preparedStatement = connection.prepareStatement(query);
-            for (int index = 0; index < parts.length; index++) {
+        if (args != null) {
+            for (int index = 0; index < partsLength; index++) {
                 String part = parts[index];
                 String[] words = part.split(" ");
                 String columnName = words[words.length - 1];
+
+                if (mapValues.get(columnName) == null) {
+                    columnName = words[words.length - 2];
+                }
+
+                if (mapValues.get(columnName) == null) {
+                    columnName = words[words.length - 3];
+                }
+
                 preparedStatement.setObject(index + 1, mapValues.get(columnName));
             }
+        }
 
         return preparedStatement;
     }
