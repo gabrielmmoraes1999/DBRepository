@@ -7,7 +7,9 @@ import br.com.onges.database.annotation.Update;
 
 import java.lang.reflect.Method;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class QuerySQL {
@@ -54,47 +56,23 @@ public class QuerySQL {
 
     public PreparedStatement getPreparedStatement(Connection connection) throws SQLException {
         Query queryAnnotation = method.getAnnotation(Query.class);
-        String query = queryAnnotation.value();
-
         Map<String, Object> mapValues = new HashMap<>();
-        query = query.replace(" = ", "=");
-        query = query.replace("=", " = ");
 
         if (args != null) {
             for (int index = 0; index < args.length; index++) {
                 Param paramAnnotation = method.getParameters()[index].getAnnotation(Param.class);
                 if (paramAnnotation != null) {
-                    String paramName = paramAnnotation.value();
-                    String placeholder = ":" + paramName;
-
-                    if (query.contains(placeholder)) {
-                        query = query.replace(placeholder, "?");
-                        mapValues.put(paramName, args[index]);
-                    }
+                    mapValues.put(paramAnnotation.value(), args[index]);
                 }
             }
         }
 
-        String[] parts = query.split("\\?");
-        int partsLength = query.length() - query.replace("?", "").length();
+        SQLParameterMapper mapper = new SQLParameterMapper(queryAnnotation.value());
+        PreparedStatement preparedStatement = connection.prepareStatement(mapper.getParsedQuery());
+        List<String> parameters = mapper.getParameters();
 
-        PreparedStatement preparedStatement = connection.prepareStatement(query);
-        if (args != null) {
-            for (int index = 0; index < partsLength; index++) {
-                String part = parts[index];
-                String[] words = part.split(" ");
-                String columnName = words[words.length - 1];
-
-                if (mapValues.get(columnName) == null) {
-                    columnName = words[words.length - 2];
-                }
-
-                if (mapValues.get(columnName) == null) {
-                    columnName = words[words.length - 3];
-                }
-
-                preparedStatement.setObject(index + 1, mapValues.get(columnName));
-            }
+        for (int index = 0; index < parameters.size(); index++) {
+            preparedStatement.setObject(index + 1, mapValues.get(parameters.get(index)));
         }
 
         return preparedStatement;
