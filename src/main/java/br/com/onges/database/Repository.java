@@ -111,6 +111,8 @@ public class Repository<T, ID> implements InvocationHandler {
             }
         }
 
+        T obj = null;
+
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql.toString())) {
             if (id instanceof List) {
                 @SuppressWarnings("unchecked")
@@ -132,7 +134,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
-                    T obj = entityClass.getDeclaredConstructor().newInstance();
+                    obj = entityClass.getDeclaredConstructor().newInstance();
 
                     for (Field field : entityClass.getDeclaredFields()) {
                         if (field.isAnnotationPresent(Column.class)) {
@@ -142,8 +144,6 @@ public class Repository<T, ID> implements InvocationHandler {
                             field.set(obj, value);
                         }
                     }
-
-                    return obj;
                 }
             }
 
@@ -151,7 +151,7 @@ public class Repository<T, ID> implements InvocationHandler {
             throw new RuntimeException(e);
         }
 
-        return null;
+        return obj;
     }
 
     public List<T> findAll() {
@@ -193,23 +193,25 @@ public class Repository<T, ID> implements InvocationHandler {
     private List<T> executeQueryEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
         List<T> resultList = new ArrayList<>();
 
-        try (ResultSet resultSet = preparedStatement.executeQuery()) {
+        try {
 
-            while (resultSet.next()) {
-                T entity = entityClass.getDeclaredConstructor().newInstance();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    T entity = entityClass.getDeclaredConstructor().newInstance();
 
-                for (Field field : entityClass.getDeclaredFields()) {
-                    if (field.isAnnotationPresent(Column.class)) {
-                        Column column = field.getAnnotation(Column.class);
-                        String columnName = column.name();
-                        Object columnValue = resultSet.getObject(columnName);
+                    for (Field field : entityClass.getDeclaredFields()) {
+                        if (field.isAnnotationPresent(Column.class)) {
+                            Column column = field.getAnnotation(Column.class);
+                            String columnName = column.name();
+                            Object columnValue = resultSet.getObject(columnName);
 
-                        field.setAccessible(true);
-                        field.set(entity, columnValue);
+                            field.setAccessible(true);
+                            field.set(entity, columnValue);
+                        }
                     }
-                }
 
-                resultList.add(entity);
+                    resultList.add(entity);
+                }
             }
 
             preparedStatement.close();
@@ -223,19 +225,21 @@ public class Repository<T, ID> implements InvocationHandler {
     private T executeQuerySingleEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
         T entity = null;
 
-        try (ResultSet resultSet = preparedStatement.executeQuery()) {
+        try {
 
-            if (resultSet.next()) {
-                entity = entityClass.getDeclaredConstructor().newInstance();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    entity = entityClass.getDeclaredConstructor().newInstance();
 
-                for (Field field : entityClass.getDeclaredFields()) {
-                    if (field.isAnnotationPresent(Column.class)) {
-                        Column column = field.getAnnotation(Column.class);
-                        String columnName = column.name();
-                        Object columnValue = resultSet.getObject(columnName);
+                    for (Field field : entityClass.getDeclaredFields()) {
+                        if (field.isAnnotationPresent(Column.class)) {
+                            Column column = field.getAnnotation(Column.class);
+                            String columnName = column.name();
+                            Object columnValue = resultSet.getObject(columnName);
 
-                        field.setAccessible(true);
-                        field.set(entity, columnValue);
+                            field.setAccessible(true);
+                            field.set(entity, columnValue);
+                        }
                     }
                 }
             }
@@ -251,15 +255,17 @@ public class Repository<T, ID> implements InvocationHandler {
     private Map<String, Object> executeQueryMap(PreparedStatement preparedStatement) {
         Map<String, Object> result = new LinkedHashMap<>();
 
-        try (ResultSet resultSet = preparedStatement.executeQuery()) {
+        try {
 
-            if (resultSet.next()) {
-                int columnCount = resultSet.getMetaData().getColumnCount();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    int columnCount = resultSet.getMetaData().getColumnCount();
 
-                for (int i = 1; i <= columnCount; i++) {
-                    String columnName = resultSet.getMetaData().getColumnLabel(i);
-                    Object columnValue = resultSet.getObject(i);
-                    result.put(columnName, columnValue);
+                    for (int i = 1; i <= columnCount; i++) {
+                        String columnName = resultSet.getMetaData().getColumnLabel(i);
+                        Object columnValue = resultSet.getObject(i);
+                        result.put(columnName, columnValue);
+                    }
                 }
             }
 
@@ -274,19 +280,21 @@ public class Repository<T, ID> implements InvocationHandler {
     private List<Map<String, Object>> executeQueryListMap(PreparedStatement preparedStatement) {
         List<Map<String, Object>> resultList = new ArrayList<>();
 
-        try (ResultSet resultSet = preparedStatement.executeQuery()) {
+        try {
 
-            while (resultSet.next()) {
-                Map<String, Object> row = new LinkedHashMap<>();
-                int columnCount = resultSet.getMetaData().getColumnCount();
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    int columnCount = resultSet.getMetaData().getColumnCount();
 
-                for (int i = 1; i <= columnCount; i++) {
-                    String columnName = resultSet.getMetaData().getColumnLabel(i);
-                    Object columnValue = resultSet.getObject(i);
-                    row.put(columnName, columnValue);
+                    for (int i = 1; i <= columnCount; i++) {
+                        String columnName = resultSet.getMetaData().getColumnLabel(i);
+                        Object columnValue = resultSet.getObject(i);
+                        row.put(columnName, columnValue);
+                    }
+
+                    resultList.add(row);
                 }
-
-                resultList.add(row);
             }
 
             preparedStatement.close();
@@ -298,19 +306,25 @@ public class Repository<T, ID> implements InvocationHandler {
     }
 
     private <R> R executeQuerySingleResult(PreparedStatement preparedStatement, Class<R> returnType) {
-        try (ResultSet resultSet = preparedStatement.executeQuery()) {
-            if (resultSet.next()) {
-                return resultSet.getObject(1, returnType);
+        R obj = null;
+
+        try {
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    obj = resultSet.getObject(1, returnType);
+                }
             }
             preparedStatement.close();
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
 
-        return null;
+        return obj;
     }
 
     private T save(T entity) {
+        T obj = null;
+
         try {
             if (!entityClass.isAnnotationPresent(Table.class)) {
                 throw new IllegalArgumentException("A classe não possui a anotação @Table.");
@@ -356,10 +370,12 @@ public class Repository<T, ID> implements InvocationHandler {
                 this.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT);
             }
 
-            return entity;
+            obj = entity;
         } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
+
+        return obj;
     }
 
     private int delete(ID id) {
@@ -405,7 +421,7 @@ public class Repository<T, ID> implements InvocationHandler {
             }
         }
 
-        int result = 0;
+        int result;
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql.toString())) {
             if (id instanceof List) {
                 @SuppressWarnings("unchecked")
@@ -451,7 +467,9 @@ public class Repository<T, ID> implements InvocationHandler {
         Class<?> clazz = entity.getClass();
         Field[] fields = clazz.getDeclaredFields();
 
+        int result;
         int index = 1;
+
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             List<Field> primaryKeyList = new ArrayList<>();
 
@@ -518,14 +536,10 @@ public class Repository<T, ID> implements InvocationHandler {
                     break;
             }
 
-            return preparedStatement.executeUpdate();
+            result = preparedStatement.executeUpdate();
         }
-    }
 
-    private int execute(String sql) throws SQLException {
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            return preparedStatement.executeUpdate();
-        }
+        return result;
     }
 
     private Class<?> getWrapperClass(Class<?> primitiveType) {
