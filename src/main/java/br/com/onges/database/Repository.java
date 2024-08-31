@@ -7,10 +7,7 @@ import br.com.onges.database.sql.UpdateSQL;
 
 import java.lang.reflect.*;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 enum TypeSQL {
     INSERT,
@@ -360,7 +357,7 @@ public class Repository<T, ID> implements InvocationHandler {
             }
 
             return entity;
-        } catch (IllegalAccessException | SQLException e) {
+        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
             throw new RuntimeException(e);
         }
     }
@@ -449,7 +446,8 @@ public class Repository<T, ID> implements InvocationHandler {
         return primaryKeyFields;
     }
 
-    private int execute(T entity, String sql, TypeSQL typeSQL) throws SQLException, IllegalAccessException {
+    private int execute(T entity, String sql, TypeSQL typeSQL)
+            throws SQLException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         Class<?> clazz = entity.getClass();
         Field[] fields = clazz.getDeclaredFields();
 
@@ -460,9 +458,20 @@ public class Repository<T, ID> implements InvocationHandler {
             switch (typeSQL) {
                 case INSERT:
                     for (Field field : fields) {
+                        Class<?> fieldType = field.getType();
+
                         if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
                             field.setAccessible(true);
-                            preparedStatement.setObject(index, field.get(entity));
+
+                            Object value = field.get(entity);
+                            Column column = field.getAnnotation(Column.class);
+
+                            if (Objects.isNull(value) && !Objects.equals("", column.defaultValue())) {
+                                Method valueOfMethod = fieldType.getMethod("valueOf", String.class);
+                                value = valueOfMethod.invoke(null, column.defaultValue());
+                            }
+
+                            preparedStatement.setObject(index, value);
                             index++;
                         }
                     }
@@ -476,11 +485,26 @@ public class Repository<T, ID> implements InvocationHandler {
 
                     //Pegar valores das demais colunas e ignorar as PrimaryKeys
                     for (Field field : fields) {
+                        Class<?> fieldType = field.getType();
+
                         if (field.isAnnotationPresent(Column.class)
                                 && !field.isAnnotationPresent(IgnoreSQL.class)
                                 && !primaryKeyList.contains(field)) {
                             field.setAccessible(true);
-                            preparedStatement.setObject(index, field.get(entity));
+
+                            if (fieldType.isPrimitive()) {
+                                fieldType = getWrapperClass(fieldType);
+                            }
+
+                            Object value = field.get(entity);
+                            Column column = field.getAnnotation(Column.class);
+
+                            if (Objects.isNull(value) && !Objects.equals("", column.defaultValue())) {
+                                Method valueOfMethod = fieldType.getMethod("valueOf", String.class);
+                                value = valueOfMethod.invoke(null, column.defaultValue());
+                            }
+
+                            preparedStatement.setObject(index, value);
                             index++;
                         }
                     }
@@ -502,6 +526,18 @@ public class Repository<T, ID> implements InvocationHandler {
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             return preparedStatement.executeUpdate();
         }
+    }
+
+    private Class<?> getWrapperClass(Class<?> primitiveType) {
+        if (primitiveType == int.class) return Integer.class;
+        if (primitiveType == long.class) return Long.class;
+        if (primitiveType == double.class) return Double.class;
+        if (primitiveType == float.class) return Float.class;
+        if (primitiveType == boolean.class) return Boolean.class;
+        if (primitiveType == char.class) return Character.class;
+        if (primitiveType == byte.class) return Byte.class;
+        if (primitiveType == short.class) return Short.class;
+        return primitiveType; // No caso de outros tipos
     }
 
     @SuppressWarnings("unchecked")
