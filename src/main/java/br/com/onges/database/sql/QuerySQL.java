@@ -7,7 +7,6 @@ import br.com.onges.database.annotation.Update;
 
 import java.lang.reflect.Method;
 import java.sql.*;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -138,6 +137,7 @@ public class QuerySQL {
         update = String.format("%s;", update);
         String[] parts = update.split(" = \\?");
 
+        int result;
         try (PreparedStatement preparedStatement = connection.prepareStatement(update)) {
             for (int index = 0; index < parts.length - 1; index++) {
                 String part = parts[index];
@@ -146,8 +146,10 @@ public class QuerySQL {
                 preparedStatement.setObject(index + 1, mapValues.get(columnName));
             }
 
-            return preparedStatement.executeUpdate();
+            result = preparedStatement.executeUpdate();
         }
+
+        return result;
     }
 
     @Deprecated
@@ -210,6 +212,7 @@ public class QuerySQL {
         delete = String.format("%s;", delete);
         String[] parts = delete.split(" = \\?");
 
+        int result;
         try (PreparedStatement preparedStatement = connection.prepareStatement(delete)) {
             for (int index = 0; index < parts.length - 1; index++) {
                 String part = parts[index];
@@ -218,8 +221,9 @@ public class QuerySQL {
                 preparedStatement.setObject(index + 1, mapValues.get(columnName));
             }
 
-            return preparedStatement.executeUpdate();
+            result = preparedStatement.executeUpdate();
         }
+        return result;
     }
 
     // Método auxiliar para converter byte[] em uma string hexadecimal
