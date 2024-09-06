@@ -318,7 +318,7 @@ public class Repository<T, ID> implements InvocationHandler {
     }
 
     private T save(T entity) {
-        T obj = null;
+        T obj;
 
         try {
             if (!entityClass.isAnnotationPresent(Table.class)) {
