@@ -9,11 +9,6 @@ import java.lang.reflect.*;
 import java.sql.*;
 import java.util.*;
 
-enum TypeSQL {
-    INSERT,
-    UPDATE
-}
-
 public class Repository<T, ID> implements InvocationHandler {
 
     private final Class<T> entityClass;
