@@ -4,6 +4,7 @@ import br.com.onges.database.annotation.*;
 import br.com.onges.database.sql.InsertSQL;
 import br.com.onges.database.sql.QuerySQL;
 import br.com.onges.database.sql.UpdateSQL;
+import br.com.onges.database.util.Util;
 
 import java.lang.reflect.*;
 import java.sql.*;
@@ -40,7 +41,13 @@ public class Repository<T, ID> implements InvocationHandler {
                 }
             } else {
                 if (method.getReturnType().isAssignableFrom(List.class)) {
-                    return executeQueryListMap(preparedStatement);
+                    Class<?> classList = Util.getClassList(method);
+
+                    if (classList == Map.class) {
+                        return executeQueryListMap(preparedStatement);
+                    } else {
+                        return executeQuerySingleResultList(preparedStatement, classList);
+                    }
                 } else if (method.getReturnType().isAssignableFrom(Map.class)) {
                     return executeQueryMap(preparedStatement);
                 } else {
@@ -317,6 +324,23 @@ public class Repository<T, ID> implements InvocationHandler {
         return obj;
     }
 
+    private <R> List<R> executeQuerySingleResultList(PreparedStatement preparedStatement, Class<R> classList) {
+        List<R> resultList = new ArrayList<>();
+
+        try {
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    resultList.add(resultSet.getObject(1, classList));
+                }
+            }
+            preparedStatement.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return resultList;
+    }
+
     private T save(T entity) {
         T obj;
 
@@ -506,7 +530,7 @@ public class Repository<T, ID> implements InvocationHandler {
                             field.setAccessible(true);
 
                             if (fieldType.isPrimitive()) {
-                                fieldType = getWrapperClass(fieldType);
+                                fieldType = Util.getWrapperClass(fieldType);
                             }
 
                             Object value = field.get(entity);
@@ -535,18 +559,6 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         return result;
-    }
-
-    private Class<?> getWrapperClass(Class<?> primitiveType) {
-        if (primitiveType == int.class) return Integer.class;
-        if (primitiveType == long.class) return Long.class;
-        if (primitiveType == double.class) return Double.class;
-        if (primitiveType == float.class) return Float.class;
-        if (primitiveType == boolean.class) return Boolean.class;
-        if (primitiveType == char.class) return Character.class;
-        if (primitiveType == byte.class) return Byte.class;
-        if (primitiveType == short.class) return Short.class;
-        return primitiveType; // No caso de outros tipos
     }
 
     @SuppressWarnings("unchecked")
