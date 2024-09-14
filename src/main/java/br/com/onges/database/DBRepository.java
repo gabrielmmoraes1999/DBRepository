@@ -4,6 +4,10 @@ import java.util.List;
 
 public interface DBRepository<T, ID> {
 
+    Integer insert(T entity);
+
+    Integer update(T entity);
+
     T save(T entity);
 
     T findById(ID id);
