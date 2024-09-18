@@ -7,6 +7,8 @@ import br.com.onges.database.sql.UpdateSQL;
 import br.com.onges.database.util.Util;
 
 import java.lang.reflect.*;
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.sql.*;
 import java.util.*;
 
@@ -61,6 +63,10 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         switch (method.getName()) {
+            case "insert":
+                return insert((T) args[0]);
+            case "update":
+                return update((T) args[0]);
             case "save":
                 return save((T) args[0]);
             case "findById":
@@ -341,6 +347,22 @@ public class Repository<T, ID> implements InvocationHandler {
         return resultList;
     }
 
+    private Integer insert(T entity) {
+        try {
+            return this.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT);
+        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Integer update(T entity) {
+        try {
+            return this.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE);
+        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private T save(T entity) {
         T obj;
 
@@ -503,6 +525,26 @@ public class Repository<T, ID> implements InvocationHandler {
                             Object value = field.get(entity);
                             Column column = field.getAnnotation(Column.class);
 
+                            if (!field.isAnnotationPresent(PrimaryKey.class)) {
+                                if (value instanceof Integer) {
+                                    if ((Integer) value == 0) {
+                                        value = null;
+                                    }
+                                } else if (value instanceof Double) {
+                                    if ((Double) value == 0.0) {
+                                        value = null;
+                                    }
+                                } else if (value instanceof BigInteger) {
+                                    if (value.equals(new BigInteger("0"))) {
+                                        value = null;
+                                    }
+                                } else if (value instanceof BigDecimal) {
+                                    if (value.equals(new BigDecimal("0.00"))) {
+                                        value = null;
+                                    }
+                                }
+                            }
+
                             if (Objects.isNull(value) && !Objects.equals("", column.defaultValue())) {
                                 Method valueOfMethod = fieldType.getMethod("valueOf", String.class);
                                 value = valueOfMethod.invoke(null, column.defaultValue());
@@ -535,6 +577,24 @@ public class Repository<T, ID> implements InvocationHandler {
 
                             Object value = field.get(entity);
                             Column column = field.getAnnotation(Column.class);
+
+                            if (value instanceof Integer) {
+                                if ((Integer) value == 0) {
+                                    value = null;
+                                }
+                            } else if (value instanceof Double) {
+                                if ((Double) value == 0.0) {
+                                    value = null;
+                                }
+                            } else if (value instanceof BigInteger) {
+                                if (value.equals(BigInteger.ZERO)) {
+                                    value = null;
+                                }
+                            } else if (value instanceof BigDecimal) {
+                                if (value.equals(BigDecimal.ZERO)) {
+                                    value = null;
+                                }
+                            }
 
                             if (Objects.isNull(value) && !Objects.equals("", column.defaultValue())) {
                                 Method valueOfMethod = fieldType.getMethod("valueOf", String.class);
