@@ -1,7 +1,6 @@
 package br.com.onges.database.sql;
 
 import br.com.onges.database.annotation.Column;
-import br.com.onges.database.annotation.IgnoreSQL;
 import br.com.onges.database.annotation.Table;
 
 import java.lang.reflect.Field;
@@ -16,6 +15,7 @@ public class InsertSQL {
 
     public String get() throws IllegalAccessException {
         Class<?> clazz = entity.getClass();
+        boolean isNull = true;
 
         // Verifica se a classe tem a anotação @Table
         if (!clazz.isAnnotationPresent(Table.class)) {
@@ -29,13 +29,19 @@ public class InsertSQL {
         Field[] fields = clazz.getDeclaredFields();
         boolean firstField = true;
         for (Field field : fields) {
-            if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
-                if (!firstField) {
-                    sql.append(", ");
+            if (field.isAnnotationPresent(Column.class)) {
+                field.setAccessible(true);
+                Object value = field.get(entity);
+
+                if (value != null) {
+                    if (!firstField) {
+                        sql.append(", ");
+                    }
+
+                    Column column = field.getAnnotation(Column.class);
+                    sql.append(column.name());
+                    firstField = false;
                 }
-                Column column = field.getAnnotation(Column.class);
-                sql.append(column.name());
-                firstField = false;
             }
         }
 
@@ -43,14 +49,24 @@ public class InsertSQL {
 
         firstField = true;
         for (Field field : fields) {
-            if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
-                if (!firstField) {
-                    sql.append(", ");
-                }
+            if (field.isAnnotationPresent(Column.class)) {
+                field.setAccessible(true);
+                Object value = field.get(entity);
 
-                sql.append("?");
-                firstField = false;
+                if (value != null) {
+                    if (!firstField) {
+                        sql.append(", ");
+                    }
+
+                    sql.append("?");
+                    firstField = false;
+                    isNull = false;
+                }
             }
+        }
+
+        if (isNull) {
+            return null;
         }
 
         sql.append(");");

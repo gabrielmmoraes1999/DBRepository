@@ -517,37 +517,12 @@ public class Repository<T, ID> implements InvocationHandler {
             switch (typeSQL) {
                 case INSERT:
                     for (Field field : fields) {
-                        Class<?> fieldType = field.getType();
-
-                        if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
+                        if (field.isAnnotationPresent(Column.class)) {
                             field.setAccessible(true);
 
                             Object value = field.get(entity);
-                            Column column = field.getAnnotation(Column.class);
-
-                            if (!field.isAnnotationPresent(PrimaryKey.class)) {
-                                if (value instanceof Integer) {
-                                    if ((Integer) value == 0) {
-                                        value = null;
-                                    }
-                                } else if (value instanceof Double) {
-                                    if ((Double) value == 0.0) {
-                                        value = null;
-                                    }
-                                } else if (value instanceof BigInteger) {
-                                    if (value.equals(new BigInteger("0"))) {
-                                        value = null;
-                                    }
-                                } else if (value instanceof BigDecimal) {
-                                    if (value.equals(new BigDecimal("0.00"))) {
-                                        value = null;
-                                    }
-                                }
-                            }
-
-                            if (Objects.isNull(value) && !Objects.equals("", column.defaultValue())) {
-                                Method valueOfMethod = fieldType.getMethod("valueOf", String.class);
-                                value = valueOfMethod.invoke(null, column.defaultValue());
+                            if (Objects.isNull(value)) {
+                                continue;
                             }
 
                             preparedStatement.setObject(index, value);
@@ -562,43 +537,13 @@ public class Repository<T, ID> implements InvocationHandler {
                         }
                     }
 
-                    //Pegar valores das demais colunas e ignorar as PrimaryKeys
                     for (Field field : fields) {
-                        Class<?> fieldType = field.getType();
-
-                        if (field.isAnnotationPresent(Column.class)
-                                && !field.isAnnotationPresent(IgnoreSQL.class)
-                                && !primaryKeyList.contains(field)) {
+                        if (field.isAnnotationPresent(Column.class) && !primaryKeyList.contains(field)) {
                             field.setAccessible(true);
 
-                            if (fieldType.isPrimitive()) {
-                                fieldType = Util.getWrapperClass(fieldType);
-                            }
-
                             Object value = field.get(entity);
-                            Column column = field.getAnnotation(Column.class);
-
-                            if (value instanceof Integer) {
-                                if ((Integer) value == 0) {
-                                    value = null;
-                                }
-                            } else if (value instanceof Double) {
-                                if ((Double) value == 0.0) {
-                                    value = null;
-                                }
-                            } else if (value instanceof BigInteger) {
-                                if (value.equals(BigInteger.ZERO)) {
-                                    value = null;
-                                }
-                            } else if (value instanceof BigDecimal) {
-                                if (value.equals(BigDecimal.ZERO)) {
-                                    value = null;
-                                }
-                            }
-
-                            if (Objects.isNull(value) && !Objects.equals("", column.defaultValue())) {
-                                Method valueOfMethod = fieldType.getMethod("valueOf", String.class);
-                                value = valueOfMethod.invoke(null, column.defaultValue());
+                            if (Objects.isNull(value)) {
+                                continue;
                             }
 
                             preparedStatement.setObject(index, value);
@@ -606,7 +551,6 @@ public class Repository<T, ID> implements InvocationHandler {
                         }
                     }
 
-                    //Pegar valores das PrimaryKeys
                     for (Field field : primaryKeyList) {
                         field.setAccessible(true);
                         preparedStatement.setObject(index, field.get(entity));
