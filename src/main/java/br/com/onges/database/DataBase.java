@@ -16,6 +16,10 @@ public class DataBase {
         conn = DriverManager.getConnection(url, user, password);
     }
 
+    public static Connection getConnection() {
+        return conn;
+    }
+
     public static Connection getConnection(String url) throws SQLException {
         return DriverManager.getConnection(url);
     }
