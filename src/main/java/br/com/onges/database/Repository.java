@@ -7,8 +7,6 @@ import br.com.onges.database.sql.UpdateSQL;
 import br.com.onges.database.util.Util;
 
 import java.lang.reflect.*;
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.sql.*;
 import java.util.*;
 
@@ -507,6 +505,24 @@ public class Repository<T, ID> implements InvocationHandler {
             throws SQLException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         Class<?> clazz = entity.getClass();
         Field[] fields = clazz.getDeclaredFields();
+        Table table = clazz.getAnnotation(Table.class);
+
+        Map<String, Object> mapColumn = new HashMap<>();
+        ResultSet columns = connection.getMetaData().getColumns(
+                null,
+                null,
+                table.name(),
+                null);
+
+        while (columns.next()) {
+            String columnName = columns.getString("COLUMN_NAME").trim();
+            String defaultValue = columns.getString("COLUMN_DEF");
+            int dataType = columns.getInt("DATA_TYPE");
+
+            if (defaultValue != null) {
+                mapColumn.put(columnName, Util.convertDefaultValue(defaultValue, dataType));
+            }
+        }
 
         int result;
         int index = 1;
@@ -518,11 +534,12 @@ public class Repository<T, ID> implements InvocationHandler {
                 case INSERT:
                     for (Field field : fields) {
                         if (field.isAnnotationPresent(Column.class)) {
+                            Column column = field.getAnnotation(Column.class);
                             field.setAccessible(true);
 
                             Object value = field.get(entity);
                             if (Objects.isNull(value)) {
-                                continue;
+                                value = mapColumn.get(column.name());
                             }
 
                             preparedStatement.setObject(index, value);
@@ -539,11 +556,12 @@ public class Repository<T, ID> implements InvocationHandler {
 
                     for (Field field : fields) {
                         if (field.isAnnotationPresent(Column.class) && !primaryKeyList.contains(field)) {
+                            Column column = field.getAnnotation(Column.class);
                             field.setAccessible(true);
 
                             Object value = field.get(entity);
                             if (Objects.isNull(value)) {
-                                continue;
+                                value = mapColumn.get(column.name());
                             }
 
                             preparedStatement.setObject(index, value);

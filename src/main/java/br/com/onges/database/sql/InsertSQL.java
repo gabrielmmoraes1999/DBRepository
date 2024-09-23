@@ -15,7 +15,6 @@ public class InsertSQL {
 
     public String get() throws IllegalAccessException {
         Class<?> clazz = entity.getClass();
-        boolean isNull = true;
 
         // Verifica se a classe tem a anotação @Table
         if (!clazz.isAnnotationPresent(Table.class)) {
@@ -30,18 +29,13 @@ public class InsertSQL {
         boolean firstField = true;
         for (Field field : fields) {
             if (field.isAnnotationPresent(Column.class)) {
-                field.setAccessible(true);
-                Object value = field.get(entity);
-
-                if (value != null) {
-                    if (!firstField) {
-                        sql.append(", ");
-                    }
-
-                    Column column = field.getAnnotation(Column.class);
-                    sql.append(column.name());
-                    firstField = false;
+                if (!firstField) {
+                    sql.append(", ");
                 }
+
+                Column column = field.getAnnotation(Column.class);
+                sql.append(column.name());
+                firstField = false;
             }
         }
 
@@ -50,23 +44,13 @@ public class InsertSQL {
         firstField = true;
         for (Field field : fields) {
             if (field.isAnnotationPresent(Column.class)) {
-                field.setAccessible(true);
-                Object value = field.get(entity);
-
-                if (value != null) {
-                    if (!firstField) {
-                        sql.append(", ");
-                    }
-
-                    sql.append("?");
-                    firstField = false;
-                    isNull = false;
+                if (!firstField) {
+                    sql.append(", ");
                 }
-            }
-        }
 
-        if (isNull) {
-            return null;
+                sql.append("?");
+                firstField = false;
+            }
         }
 
         sql.append(");");
