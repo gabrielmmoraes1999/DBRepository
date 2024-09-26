@@ -61,6 +61,10 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         switch (method.getName()) {
+            case "insert":
+                return insert((T) args[0]);
+            case "update":
+                return update((T) args[0]);
             case "save":
                 return save((T) args[0]);
             case "findById":
@@ -341,6 +345,22 @@ public class Repository<T, ID> implements InvocationHandler {
         return resultList;
     }
 
+    private Integer insert(T entity) {
+        try {
+            return this.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT);
+        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Integer update(T entity) {
+        try {
+            return this.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE);
+        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private T save(T entity) {
         T obj;
 
@@ -485,6 +505,24 @@ public class Repository<T, ID> implements InvocationHandler {
             throws SQLException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         Class<?> clazz = entity.getClass();
         Field[] fields = clazz.getDeclaredFields();
+        Table table = clazz.getAnnotation(Table.class);
+
+        Map<String, Object> mapColumn = new HashMap<>();
+        ResultSet columns = connection.getMetaData().getColumns(
+                null,
+                null,
+                table.name(),
+                null);
+
+        while (columns.next()) {
+            String columnName = columns.getString("COLUMN_NAME").trim();
+            String defaultValue = columns.getString("COLUMN_DEF");
+            int dataType = columns.getInt("DATA_TYPE");
+
+            if (defaultValue != null) {
+                mapColumn.put(columnName, Util.convertDefaultValue(defaultValue, dataType));
+            }
+        }
 
         int result;
         int index = 1;
@@ -495,17 +533,13 @@ public class Repository<T, ID> implements InvocationHandler {
             switch (typeSQL) {
                 case INSERT:
                     for (Field field : fields) {
-                        Class<?> fieldType = field.getType();
-
-                        if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
+                        if (field.isAnnotationPresent(Column.class)) {
+                            Column column = field.getAnnotation(Column.class);
                             field.setAccessible(true);
 
                             Object value = field.get(entity);
-                            Column column = field.getAnnotation(Column.class);
-
-                            if (Objects.isNull(value) && !Objects.equals("", column.defaultValue())) {
-                                Method valueOfMethod = fieldType.getMethod("valueOf", String.class);
-                                value = valueOfMethod.invoke(null, column.defaultValue());
+                            if (Objects.isNull(value)) {
+                                value = mapColumn.get(column.name());
                             }
 
                             preparedStatement.setObject(index, value);
@@ -520,25 +554,14 @@ public class Repository<T, ID> implements InvocationHandler {
                         }
                     }
 
-                    //Pegar valores das demais colunas e ignorar as PrimaryKeys
                     for (Field field : fields) {
-                        Class<?> fieldType = field.getType();
-
-                        if (field.isAnnotationPresent(Column.class)
-                                && !field.isAnnotationPresent(IgnoreSQL.class)
-                                && !primaryKeyList.contains(field)) {
+                        if (field.isAnnotationPresent(Column.class) && !primaryKeyList.contains(field)) {
+                            Column column = field.getAnnotation(Column.class);
                             field.setAccessible(true);
 
-                            if (fieldType.isPrimitive()) {
-                                fieldType = Util.getWrapperClass(fieldType);
-                            }
-
                             Object value = field.get(entity);
-                            Column column = field.getAnnotation(Column.class);
-
-                            if (Objects.isNull(value) && !Objects.equals("", column.defaultValue())) {
-                                Method valueOfMethod = fieldType.getMethod("valueOf", String.class);
-                                value = valueOfMethod.invoke(null, column.defaultValue());
+                            if (Objects.isNull(value)) {
+                                value = mapColumn.get(column.name());
                             }
 
                             preparedStatement.setObject(index, value);
@@ -546,7 +569,6 @@ public class Repository<T, ID> implements InvocationHandler {
                         }
                     }
 
-                    //Pegar valores das PrimaryKeys
                     for (Field field : primaryKeyList) {
                         field.setAccessible(true);
                         preparedStatement.setObject(index, field.get(entity));

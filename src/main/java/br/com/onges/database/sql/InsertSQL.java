@@ -1,7 +1,6 @@
 package br.com.onges.database.sql;
 
 import br.com.onges.database.annotation.Column;
-import br.com.onges.database.annotation.IgnoreSQL;
 import br.com.onges.database.annotation.Table;
 
 import java.lang.reflect.Field;
@@ -29,10 +28,11 @@ public class InsertSQL {
         Field[] fields = clazz.getDeclaredFields();
         boolean firstField = true;
         for (Field field : fields) {
-            if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
+            if (field.isAnnotationPresent(Column.class)) {
                 if (!firstField) {
                     sql.append(", ");
                 }
+
                 Column column = field.getAnnotation(Column.class);
                 sql.append(column.name());
                 firstField = false;
@@ -43,7 +43,7 @@ public class InsertSQL {
 
         firstField = true;
         for (Field field : fields) {
-            if (field.isAnnotationPresent(Column.class) && !field.isAnnotationPresent(IgnoreSQL.class)) {
+            if (field.isAnnotationPresent(Column.class)) {
                 if (!firstField) {
                     sql.append(", ");
                 }
