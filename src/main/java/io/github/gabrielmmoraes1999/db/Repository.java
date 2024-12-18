@@ -1,10 +1,10 @@
 package io.github.gabrielmmoraes1999.db;
 
-import br.com.onges.database.annotation.*;
-import br.com.onges.database.sql.InsertSQL;
-import br.com.onges.database.sql.QuerySQL;
-import br.com.onges.database.sql.UpdateSQL;
-import br.com.onges.database.util.Util;
+import io.github.gabrielmmoraes1999.db.annotation.*;
+import io.github.gabrielmmoraes1999.db.sql.InsertSQL;
+import io.github.gabrielmmoraes1999.db.sql.QuerySQL;
+import io.github.gabrielmmoraes1999.db.sql.UpdateSQL;
+import io.github.gabrielmmoraes1999.db.util.Util;
 
 import java.lang.reflect.*;
 import java.sql.*;
