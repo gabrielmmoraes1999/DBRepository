@@ -4,13 +4,13 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>br.com.onges</groupId>
+    <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.0</version>
+    <version>1.0.1</version>
 
     <name>DBRepository</name>
     <description>Gerenciador de banco de dados.</description>
-    <url>http://estoque.com.br</url>
+    <url>https://github.com/gabrielmmoraes1999/DBRepository</url>
 
     <licenses>
         <license>

@@ -1,9 +1,9 @@
-package br.com.onges.database.sql;
+package io.github.gabrielmmoraes1999.db.sql;
 
-import br.com.onges.database.annotation.Delete;
-import br.com.onges.database.annotation.Param;
-import br.com.onges.database.annotation.Query;
-import br.com.onges.database.annotation.Update;
+import io.github.gabrielmmoraes1999.db.annotation.Delete;
+import io.github.gabrielmmoraes1999.db.annotation.Param;
+import io.github.gabrielmmoraes1999.db.annotation.Query;
+import io.github.gabrielmmoraes1999.db.annotation.Update;
 
 import java.lang.reflect.Method;
 import java.sql.*;

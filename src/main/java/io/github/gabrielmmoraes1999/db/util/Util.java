@@ -1,4 +1,4 @@
-package br.com.onges.database.util;
+package io.github.gabrielmmoraes1999.db.util;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;

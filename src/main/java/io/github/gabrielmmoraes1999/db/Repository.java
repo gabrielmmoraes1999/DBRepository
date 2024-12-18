@@ -1,4 +1,4 @@
-package br.com.onges.database;
+package io.github.gabrielmmoraes1999.db;
 
 import br.com.onges.database.annotation.*;
 import br.com.onges.database.sql.InsertSQL;

@@ -1,4 +1,4 @@
-package br.com.onges.database.sql;
+package io.github.gabrielmmoraes1999.db.sql;
 
 import java.util.ArrayList;
 import java.util.List;

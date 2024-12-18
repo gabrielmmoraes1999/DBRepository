@@ -1,7 +1,7 @@
-package br.com.onges.database.sql;
+package io.github.gabrielmmoraes1999.db.sql;
 
-import br.com.onges.database.annotation.Column;
-import br.com.onges.database.annotation.Table;
+import io.github.gabrielmmoraes1999.db.annotation.Column;
+import io.github.gabrielmmoraes1999.db.annotation.Table;
 
 import java.lang.reflect.Field;
 

@@ -5,7 +5,7 @@ Importação da biblioteca :
 - Maven :
 ```xml
 <dependency>
-    <groupId>br.com.onges</groupId>
+    <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
     <version>1.0</version>
 </dependency>

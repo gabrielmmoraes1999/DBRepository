@@ -1,4 +1,4 @@
-package br.com.onges.database;
+package io.github.gabrielmmoraes1999.db;
 
 import java.util.List;
 
