@@ -3,6 +3,7 @@ package io.github.gabrielmmoraes1999.db;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Properties;
 
 public class DataBase {
 
@@ -12,8 +13,23 @@ public class DataBase {
         conn = DriverManager.getConnection(url);
     }
 
+    public static void createConnection(String url, Properties info) throws SQLException {
+        conn = DriverManager.getConnection(url, info);
+    }
+
     public static void createConnection(String url, String user, String password) throws SQLException {
         conn = DriverManager.getConnection(url, user, password);
+    }
+
+    public static void createConnection(String url, String user, String password, Properties info) throws SQLException {
+        if (user != null) {
+            info.put("user", user);
+        }
+
+        if (password != null) {
+            info.put("password", password);
+        }
+        conn = DriverManager.getConnection(url, info);
     }
 
     public static Connection getConnection() {
@@ -24,8 +40,24 @@ public class DataBase {
         return DriverManager.getConnection(url);
     }
 
+    public static Connection getConnection(String url, Properties info) throws SQLException {
+        return DriverManager.getConnection(url, info);
+    }
+
     public static Connection getConnection(String url, String user, String password) throws SQLException {
         return DriverManager.getConnection(url, user, password);
+    }
+
+    public static Connection getConnection(String url, String user, String password, Properties info) throws SQLException {
+        if (user != null) {
+            info.put("user", user);
+        }
+
+        if (password != null) {
+            info.put("password", password);
+        }
+
+        return DriverManager.getConnection(url, info);
     }
 
     public static void commit() throws SQLException {
