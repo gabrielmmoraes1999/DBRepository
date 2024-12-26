@@ -7,7 +7,7 @@ Importação da biblioteca :
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
 </dependency>
 ```
 
