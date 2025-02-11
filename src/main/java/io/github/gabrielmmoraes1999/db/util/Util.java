@@ -1,5 +1,8 @@
 package io.github.gabrielmmoraes1999.db.util;
 
+import io.github.gabrielmmoraes1999.db.annotation.Column;
+
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
@@ -84,5 +87,15 @@ public class Util {
                 // Caso genérico, retornar o valor como String
                 return defaultValue;
         }
+    }
+
+    public static String getColumnName(Class<?> entityClass, String fieldName) {
+        for (Field field : entityClass.getDeclaredFields()) {
+            if (field.getName().equalsIgnoreCase(fieldName)) {
+                Column columnAnnotation = field.getAnnotation(Column.class);
+                return (columnAnnotation != null) ? columnAnnotation.name() : field.getName();
+            }
+        }
+        return null;
     }
 }

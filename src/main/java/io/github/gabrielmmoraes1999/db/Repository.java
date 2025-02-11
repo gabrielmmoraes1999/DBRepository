@@ -28,6 +28,7 @@ public class Repository<T, ID> implements InvocationHandler {
     @Override
     @SuppressWarnings("unchecked")
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        String nameMethod = method.getName();
 
         if (method.isAnnotationPresent(Query.class)) {
             Query queryAnnotation = method.getAnnotation(Query.class);
@@ -60,7 +61,7 @@ public class Repository<T, ID> implements InvocationHandler {
             return new QuerySQL(method, args).delete(connection);
         }
 
-        switch (method.getName()) {
+        switch (nameMethod) {
             case "insert":
                 return insert((T) args[0]);
             case "update":
@@ -77,7 +78,11 @@ public class Repository<T, ID> implements InvocationHandler {
                 break;
         }
 
-        return null;
+        if (nameMethod.startsWith("findBy")) {
+            return handleFindByMethod(method, args);
+        }
+
+        throw new UnsupportedOperationException("Método não suportado: " + method.getName());
     }
 
     public T findById(ID id) {
@@ -200,7 +205,6 @@ public class Repository<T, ID> implements InvocationHandler {
         List<T> resultList = new ArrayList<>();
 
         try {
-
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
                     T entity = entityClass.getDeclaredConstructor().newInstance();
@@ -343,6 +347,110 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         return resultList;
+    }
+
+    private Object handleFindByMethod(Method method, Object[] args) {
+        String methodName = method.getName();
+        Class<?> returnClass = method.getReturnType();
+        methodName = methodName.substring(6); // Remove "findBy"
+
+        if (!entityClass.isAnnotationPresent(Table.class)) {
+            throw new IllegalArgumentException("A classe não possui a anotação @Table.");
+        }
+
+        Table table = entityClass.getAnnotation(Table.class);
+        List<String> conditions = new ArrayList<>();
+        List<Object> params = new ArrayList<>();
+        String lastCondition = "AND"; // Assume AND por padrão
+
+        String[] tokens = methodName.split("(?=And|Or)"); // Divide nos operadores And/Or
+
+        for (int i = 0; i < tokens.length; i++) {
+            String token = tokens[i];
+
+            if (token.startsWith("And")) {
+                lastCondition = "AND";
+                token = token.substring(3);
+            } else if (token.startsWith("Or")) {
+                lastCondition = "OR";
+                token = token.substring(2);
+            }
+
+            String operator = "="; // Padrão é Equals
+            if (token.startsWith("GreaterThan")) {
+                operator = ">";
+                token = token.substring(11);
+            } else if (token.startsWith("LessThan")) {
+                operator = "<";
+                token = token.substring(8);
+            } else if (token.startsWith("NotEquals")) {
+                operator = "!=";
+                token = token.substring(9);
+            } else if (token.startsWith("Like")) {
+                operator = "LIKE";
+                token = token.substring(4);
+            }
+
+            // Busca o nome correto da coluna
+            String columnName = Util.getColumnName(entityClass, token);
+            if (columnName == null) {
+                throw new RuntimeException("Coluna não encontrada para o campo: " + token);
+            }
+
+            conditions.add(columnName + " " + operator + " ?");
+            params.add(args[i]);
+
+            if (i > 0) {
+                conditions.set(i, lastCondition + " " + conditions.get(i));
+            }
+        }
+
+        String sql = String.format(
+                "SELECT * FROM %s WHERE %s",
+                table.name(),
+                String.join(" ", conditions)
+        );
+
+        T resultObject = null;
+        List<T> resultList = new ArrayList<>();
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            for (int index = 0; index < params.size(); index++) {
+                preparedStatement.setObject(index + 1, params.get(index));
+            }
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    T entity = entityClass.getDeclaredConstructor().newInstance();
+
+                    for (Field field : entityClass.getDeclaredFields()) {
+                        if (field.isAnnotationPresent(Column.class)) {
+                            Column column = field.getAnnotation(Column.class);
+                            String columnName = column.name();
+                            Object columnValue = resultSet.getObject(columnName);
+
+                            field.setAccessible(true);
+                            field.set(entity, columnValue);
+                        }
+                    }
+
+                    if (returnClass == List.class) {
+                        resultList.add(entity);
+                    } else {
+                        resultObject = entity;
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        if (returnClass == List.class) {
+            return resultList;
+        } else {
+            return resultObject;
+        }
     }
 
     private Integer insert(T entity) {
