@@ -413,6 +413,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
         T resultObject = null;
         List<T> resultList = new ArrayList<>();
+        System.out.println("Executando SQL: " + sql + " | Params: " + params);
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             for (int index = 0; index < params.size(); index++) {
