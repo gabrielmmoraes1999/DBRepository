@@ -37,8 +37,7 @@ public class Util {
         if (primitiveType == double.class) return Double.class;
         if (primitiveType == float.class) return Float.class;
         if (primitiveType == boolean.class) return Boolean.class;
-        if (primitiveType == char.class) return Character.class;
-        if (primitiveType == byte.class) return Byte.class;
+        if (primitiveType == char.class) return String.class;
         if (primitiveType == short.class) return Short.class;
         return primitiveType; // No caso de outros tipos
     }
