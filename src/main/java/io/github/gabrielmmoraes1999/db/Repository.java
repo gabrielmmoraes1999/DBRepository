@@ -35,23 +35,23 @@ public class Repository<T, ID> implements InvocationHandler {
             assert queryAnnotation != null;
             if (queryAnnotation.entity()) {
                 if (method.getReturnType().isAssignableFrom(List.class)) {
-                    return executeQueryEntity(preparedStatement, entityClass);
+                    return QueryCustom.getEntityList(preparedStatement, entityClass);
                 } else {
-                    return executeQuerySingleEntity(preparedStatement, entityClass);
+                    return QueryCustom.getEntity(preparedStatement, entityClass);
                 }
             } else {
                 if (method.getReturnType().isAssignableFrom(List.class)) {
                     Class<?> classList = Function.getClassList(method);
 
                     if (classList == Map.class) {
-                        return executeQueryListMap(preparedStatement);
+                        return QueryCustom.getMapList(preparedStatement);
                     } else {
-                        return executeQuerySingleResultList(preparedStatement, classList);
+                        return QueryCustom.getObjectList(preparedStatement, classList);
                     }
                 } else if (method.getReturnType().isAssignableFrom(Map.class)) {
-                    return executeQueryMap(preparedStatement);
+                    return QueryCustom.getMap(preparedStatement);
                 } else {
-                    return executeQuerySingleResult(preparedStatement, method.getReturnType());
+                    return QueryCustom.getObject(preparedStatement, method.getReturnType());
                 }
             }
         } else if (method.isAnnotationPresent(Update.class)) {
@@ -88,113 +88,6 @@ public class Repository<T, ID> implements InvocationHandler {
         throw new UnsupportedOperationException("Método não suportado: " + method.getName());
     }
 
-    private List<T> executeQueryEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
-        List<T> resultList = new ArrayList<>();
-
-        try {
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    resultList.add(Function.getEntity(entityClass, resultSet));
-                }
-            }
-
-            preparedStatement.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return resultList;
-    }
-
-    private T executeQuerySingleEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
-        T entity = null;
-
-        try {
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    entity = Function.getEntity(entityClass, resultSet);
-                }
-            }
-
-            preparedStatement.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return entity;
-    }
-
-    private Map<String, Object> executeQueryMap(PreparedStatement preparedStatement) {
-        Map<String, Object> result = new LinkedHashMap<>();
-
-        try {
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    int columnCount = resultSet.getMetaData().getColumnCount();
-
-                    for (int i = 1; i <= columnCount; i++) {
-                        String columnName = resultSet.getMetaData().getColumnLabel(i);
-                        Object columnValue = resultSet.getObject(i);
-                        result.put(columnName, columnValue);
-                    }
-                }
-            }
-
-            preparedStatement.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        return result;
-    }
-
-    private List<Map<String, Object>> executeQueryListMap(PreparedStatement preparedStatement) {
-        List<Map<String, Object>> resultList = new ArrayList<>();
-
-        try {
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    Map<String, Object> row = new LinkedHashMap<>();
-                    int columnCount = resultSet.getMetaData().getColumnCount();
-
-                    for (int i = 1; i <= columnCount; i++) {
-                        String columnName = resultSet.getMetaData().getColumnLabel(i);
-                        Object columnValue = resultSet.getObject(i);
-                        row.put(columnName, columnValue);
-                    }
-
-                    resultList.add(row);
-                }
-            }
-
-            preparedStatement.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        return resultList;
-    }
-
-    private <R> List<R> executeQuerySingleResultList(PreparedStatement preparedStatement, Class<R> classList) {
-        List<R> resultList = new ArrayList<>();
-
-        try {
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    resultList.add(resultSet.getObject(1, classList));
-                }
-            }
-            preparedStatement.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        return resultList;
-    }
-
     private Object handleFindByMethod(Method method, Object[] args) {
         String methodName = method.getName();
         Class<?> returnClass = method.getReturnType();
@@ -221,19 +114,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
-                    T entity = entityClass.getDeclaredConstructor().newInstance();
-
-                    for (Field field : entityClass.getDeclaredFields()) {
-                        if (field.isAnnotationPresent(Column.class)) {
-                            Column column = field.getAnnotation(Column.class);
-                            assert column != null;
-                            String columnName = column.name();
-                            Object columnValue = resultSet.getObject(columnName);
-
-                            field.setAccessible(true);
-                            field.set(entity, columnValue);
-                        }
-                    }
+                    T entity = Function.getEntity(entityClass, resultSet);
 
                     if (returnClass == List.class) {
                         resultList.add(entity);
@@ -286,28 +167,9 @@ public class Repository<T, ID> implements InvocationHandler {
                 Function.getOrderBy(methodName, entityClass)
         );
 
-        System.out.println(sql);
-
         PreparedStatement preparedStatement = connection.prepareStatement(sql);
         Function.setParams(preparedStatement, findBy.getParams());
-        return executeQuerySingleResult(preparedStatement, method.getReturnType());
-    }
-
-    private <R> R executeQuerySingleResult(PreparedStatement preparedStatement, Class<R> returnType) {
-        R obj = null;
-
-        try {
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    obj = resultSet.getObject(1, returnType);
-                }
-            }
-            preparedStatement.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        return obj;
+        return QueryCustom.getObject(preparedStatement, method.getReturnType());
     }
 
     public List<T> findAll() {
