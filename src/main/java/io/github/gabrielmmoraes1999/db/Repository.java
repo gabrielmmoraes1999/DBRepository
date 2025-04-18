@@ -91,128 +91,6 @@ public class Repository<T, ID> implements InvocationHandler {
         throw new UnsupportedOperationException("Método não suportado: " + method.getName());
     }
 
-    public T findById(ID id) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM ");
-
-        if (!entityClass.isAnnotationPresent(Table.class)) {
-            throw new IllegalArgumentException("A classe não possui a anotação @Table.");
-        }
-
-        int countPk = 0;
-        Table table = entityClass.getAnnotation(Table.class);
-        assert table != null;
-        sql.append(table.name()).append(" WHERE ");
-
-        if (id instanceof List) {
-            boolean first = true;
-
-            for (Field field : entityClass.getDeclaredFields()) {
-                if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
-                    if (!first) {
-                        sql.append(" AND ");
-                    }
-
-                    countPk++;
-                    Column column = field.getAnnotation(Column.class);
-                    assert column != null;
-                    sql.append(column.name()).append(" = ?");
-                    first = false;
-                }
-            }
-        } else {
-            // Suporte para chave primária simples
-            for (Field field : entityClass.getDeclaredFields()) {
-                if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
-                    Column column = field.getAnnotation(Column.class);
-                    assert column != null;
-                    sql.append(column.name()).append(" = ?");
-                    break;
-                }
-            }
-        }
-
-        T obj = null;
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql.toString())) {
-            if (id instanceof List) {
-                @SuppressWarnings("unchecked")
-                List<Object> keys = (List<Object>) id;
-
-                if (keys.size() != countPk) {
-                    throw new IllegalArgumentException("A quantidade de PK inválida.");
-                }
-
-                int index = 1;
-                for (Object value : keys) {
-                    preparedStatement.setObject(index, value);
-                    index++;
-                }
-
-            } else {
-                preparedStatement.setObject(1, id);
-            }
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    obj = entityClass.getDeclaredConstructor().newInstance();
-
-                    for (Field field : entityClass.getDeclaredFields()) {
-                        if (field.isAnnotationPresent(Column.class)) {
-                            Column column = field.getAnnotation(Column.class);
-                            field.setAccessible(true);
-                            assert column != null;
-                            Object value = resultSet.getObject(column.name());
-                            field.set(obj, value);
-                        }
-                    }
-                }
-            }
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return obj;
-    }
-
-    public List<T> findAll() {
-        List<T> resultList = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT * FROM ");
-
-        if (!entityClass.isAnnotationPresent(Table.class)) {
-            throw new IllegalArgumentException("A classe não possui a anotação @Table.");
-        }
-
-        Table table = entityClass.getAnnotation(Table.class);
-        assert table != null;
-        sql.append(table.name());
-
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql.toString())) {
-            while (resultSet.next()) {
-                T obj = entityClass.getDeclaredConstructor().newInstance();
-
-                for (Field field : entityClass.getDeclaredFields()) {
-                    if (field.isAnnotationPresent(Column.class)) {
-                        Column column = field.getAnnotation(Column.class);
-                        field.setAccessible(true);
-
-                        assert column != null;
-                        Object value = resultSet.getObject(column.name());
-                        field.set(obj, value);
-                    }
-                }
-
-                resultList.add(obj);
-            }
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return resultList;
-    }
-
     private List<T> executeQueryEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
         List<T> resultList = new ArrayList<>();
 
@@ -455,6 +333,128 @@ public class Repository<T, ID> implements InvocationHandler {
             }
             preparedStatement.close();
         } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return obj;
+    }
+
+    public List<T> findAll() {
+        List<T> resultList = new ArrayList<>();
+        StringBuilder sql = new StringBuilder("SELECT * FROM ");
+
+        if (!entityClass.isAnnotationPresent(Table.class)) {
+            throw new IllegalArgumentException("A classe não possui a anotação @Table.");
+        }
+
+        Table table = entityClass.getAnnotation(Table.class);
+        assert table != null;
+        sql.append(table.name());
+
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery(sql.toString())) {
+            while (resultSet.next()) {
+                T obj = entityClass.getDeclaredConstructor().newInstance();
+
+                for (Field field : entityClass.getDeclaredFields()) {
+                    if (field.isAnnotationPresent(Column.class)) {
+                        Column column = field.getAnnotation(Column.class);
+                        field.setAccessible(true);
+
+                        assert column != null;
+                        Object value = resultSet.getObject(column.name());
+                        field.set(obj, value);
+                    }
+                }
+
+                resultList.add(obj);
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return resultList;
+    }
+
+    public T findById(ID id) {
+        StringBuilder sql = new StringBuilder("SELECT * FROM ");
+
+        if (!entityClass.isAnnotationPresent(Table.class)) {
+            throw new IllegalArgumentException("A classe não possui a anotação @Table.");
+        }
+
+        int countPk = 0;
+        Table table = entityClass.getAnnotation(Table.class);
+        assert table != null;
+        sql.append(table.name()).append(" WHERE ");
+
+        if (id instanceof List) {
+            boolean first = true;
+
+            for (Field field : entityClass.getDeclaredFields()) {
+                if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
+                    if (!first) {
+                        sql.append(" AND ");
+                    }
+
+                    countPk++;
+                    Column column = field.getAnnotation(Column.class);
+                    assert column != null;
+                    sql.append(column.name()).append(" = ?");
+                    first = false;
+                }
+            }
+        } else {
+            // Suporte para chave primária simples
+            for (Field field : entityClass.getDeclaredFields()) {
+                if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
+                    Column column = field.getAnnotation(Column.class);
+                    assert column != null;
+                    sql.append(column.name()).append(" = ?");
+                    break;
+                }
+            }
+        }
+
+        T obj = null;
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql.toString())) {
+            if (id instanceof List) {
+                @SuppressWarnings("unchecked")
+                List<Object> keys = (List<Object>) id;
+
+                if (keys.size() != countPk) {
+                    throw new IllegalArgumentException("A quantidade de PK inválida.");
+                }
+
+                int index = 1;
+                for (Object value : keys) {
+                    preparedStatement.setObject(index, value);
+                    index++;
+                }
+
+            } else {
+                preparedStatement.setObject(1, id);
+            }
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                if (resultSet.next()) {
+                    obj = entityClass.getDeclaredConstructor().newInstance();
+
+                    for (Field field : entityClass.getDeclaredFields()) {
+                        if (field.isAnnotationPresent(Column.class)) {
+                            Column column = field.getAnnotation(Column.class);
+                            field.setAccessible(true);
+                            assert column != null;
+                            Object value = resultSet.getObject(column.name());
+                            field.set(obj, value);
+                        }
+                    }
+                }
+            }
+
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
