@@ -1,11 +1,8 @@
 package io.github.gabrielmmoraes1999.db;
 
 import io.github.gabrielmmoraes1999.db.annotation.*;
-import io.github.gabrielmmoraes1999.db.sql.InsertSQL;
-import io.github.gabrielmmoraes1999.db.sql.QuerySQL;
-import io.github.gabrielmmoraes1999.db.sql.UpdateSQL;
-import io.github.gabrielmmoraes1999.db.util.FindBy;
-import io.github.gabrielmmoraes1999.db.util.Function;
+import io.github.gabrielmmoraes1999.db.sql.*;
+import io.github.gabrielmmoraes1999.db.util.*;
 
 import java.lang.reflect.*;
 import java.sql.*;
@@ -97,21 +94,7 @@ public class Repository<T, ID> implements InvocationHandler {
         try {
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
-                    T entity = entityClass.getDeclaredConstructor().newInstance();
-
-                    for (Field field : entityClass.getDeclaredFields()) {
-                        if (field.isAnnotationPresent(Column.class)) {
-                            Column column = field.getAnnotation(Column.class);
-                            assert column != null;
-                            String columnName = column.name();
-                            Object columnValue = resultSet.getObject(columnName);
-
-                            field.setAccessible(true);
-                            field.set(entity, columnValue);
-                        }
-                    }
-
-                    resultList.add(entity);
+                    resultList.add(Function.getEntity(entityClass, resultSet));
                 }
             }
 
@@ -130,19 +113,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
-                    entity = entityClass.getDeclaredConstructor().newInstance();
-
-                    for (Field field : entityClass.getDeclaredFields()) {
-                        if (field.isAnnotationPresent(Column.class)) {
-                            Column column = field.getAnnotation(Column.class);
-                            assert column != null;
-                            String columnName = column.name();
-                            Object columnValue = resultSet.getObject(columnName);
-
-                            field.setAccessible(true);
-                            field.set(entity, columnValue);
-                        }
-                    }
+                    entity = Function.getEntity(entityClass, resultSet);
                 }
             }
 
@@ -340,41 +311,24 @@ public class Repository<T, ID> implements InvocationHandler {
     }
 
     public List<T> findAll() {
-        List<T> resultList = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT * FROM ");
-
         if (!entityClass.isAnnotationPresent(Table.class)) {
             throw new IllegalArgumentException("A classe não possui a anotação @Table.");
         }
 
+        List<T> entityList = new ArrayList<>();
         Table table = entityClass.getAnnotation(Table.class);
         assert table != null;
-        sql.append(table.name());
+        String sql = "SELECT * FROM " + table.name();
 
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql.toString())) {
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
             while (resultSet.next()) {
-                T obj = entityClass.getDeclaredConstructor().newInstance();
-
-                for (Field field : entityClass.getDeclaredFields()) {
-                    if (field.isAnnotationPresent(Column.class)) {
-                        Column column = field.getAnnotation(Column.class);
-                        field.setAccessible(true);
-
-                        assert column != null;
-                        Object value = resultSet.getObject(column.name());
-                        field.set(obj, value);
-                    }
-                }
-
-                resultList.add(obj);
+                entityList.add(Function.getEntity(entityClass, resultSet));
             }
-
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
-        return resultList;
+        return entityList;
     }
 
     public T findById(ID id) {

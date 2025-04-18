@@ -3,10 +3,7 @@ package io.github.gabrielmmoraes1999.db.util;
 import io.github.gabrielmmoraes1999.db.annotation.Column;
 import io.github.gabrielmmoraes1999.db.annotation.PrimaryKey;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
+import java.lang.reflect.*;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
@@ -179,5 +176,21 @@ public class Function {
                 // Caso genérico, retornar o valor como String
                 return defaultValue;
         }
+    }
+
+    public static <T> T getEntity(Class<T> entityClass, ResultSet resultSet)
+            throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, SQLException {
+        T entity = entityClass.getDeclaredConstructor().newInstance();
+
+        for (Field field : entityClass.getDeclaredFields()) {
+            if (field.isAnnotationPresent(Column.class)) {
+                Column column = field.getAnnotation(Column.class);
+                field.setAccessible(true);
+
+                assert column != null;
+                field.set(entity, resultSet.getObject(column.name()));
+            }
+        }
+        return entity;
     }
 }
