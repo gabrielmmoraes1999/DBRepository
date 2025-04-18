@@ -1,10 +1,8 @@
 package io.github.gabrielmmoraes1999.db;
 
 import io.github.gabrielmmoraes1999.db.annotation.*;
-import io.github.gabrielmmoraes1999.db.sql.InsertSQL;
-import io.github.gabrielmmoraes1999.db.sql.QuerySQL;
-import io.github.gabrielmmoraes1999.db.sql.UpdateSQL;
-import io.github.gabrielmmoraes1999.db.util.Util;
+import io.github.gabrielmmoraes1999.db.sql.*;
+import io.github.gabrielmmoraes1999.db.util.*;
 
 import java.lang.reflect.*;
 import java.sql.*;
@@ -28,30 +26,32 @@ public class Repository<T, ID> implements InvocationHandler {
     @Override
     @SuppressWarnings("unchecked")
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        String nameMethod = method.getName();
 
         if (method.isAnnotationPresent(Query.class)) {
             Query queryAnnotation = method.getAnnotation(Query.class);
             PreparedStatement preparedStatement = new QuerySQL(method, args).getPreparedStatement(connection);
 
+            assert queryAnnotation != null;
             if (queryAnnotation.entity()) {
                 if (method.getReturnType().isAssignableFrom(List.class)) {
-                    return executeQueryEntity(preparedStatement, entityClass);
+                    return QueryCustom.getEntityList(preparedStatement, entityClass);
                 } else {
-                    return executeQuerySingleEntity(preparedStatement, entityClass);
+                    return QueryCustom.getEntity(preparedStatement, entityClass);
                 }
             } else {
                 if (method.getReturnType().isAssignableFrom(List.class)) {
-                    Class<?> classList = Util.getClassList(method);
+                    Class<?> classList = Function.getClassList(method);
 
                     if (classList == Map.class) {
-                        return executeQueryListMap(preparedStatement);
+                        return QueryCustom.getMapList(preparedStatement);
                     } else {
-                        return executeQuerySingleResultList(preparedStatement, classList);
+                        return QueryCustom.getObjectList(preparedStatement, classList);
                     }
                 } else if (method.getReturnType().isAssignableFrom(Map.class)) {
-                    return executeQueryMap(preparedStatement);
+                    return QueryCustom.getMap(preparedStatement);
                 } else {
-                    return executeQuerySingleResult(preparedStatement, method.getReturnType());
+                    return QueryCustom.getObject(preparedStatement, method.getReturnType());
                 }
             }
         } else if (method.isAnnotationPresent(Update.class)) {
@@ -60,7 +60,7 @@ public class Repository<T, ID> implements InvocationHandler {
             return new QuerySQL(method, args).delete(connection);
         }
 
-        switch (method.getName()) {
+        switch (nameMethod) {
             case "insert":
                 return insert((T) args[0]);
             case "update":
@@ -77,7 +77,120 @@ public class Repository<T, ID> implements InvocationHandler {
                 break;
         }
 
-        return null;
+        if (nameMethod.startsWith("findBy")) {
+            return handleFindByMethod(method, args);
+        } else if (nameMethod.startsWith("min") || nameMethod.startsWith("max") || nameMethod.startsWith("count")) {
+            return minMaxCount(method, args);
+        } else if (nameMethod.startsWith("next")) {
+            return null;
+        }
+
+        throw new UnsupportedOperationException("Método não suportado: " + method.getName());
+    }
+
+    private Object handleFindByMethod(Method method, Object[] args) {
+        String methodName = method.getName();
+        Class<?> returnClass = method.getReturnType();
+
+        if (!entityClass.isAnnotationPresent(Table.class)) {
+            throw new IllegalArgumentException("A classe não possui a anotação @Table.");
+        }
+
+        T resultObject = null;
+        List<T> resultList = new ArrayList<>();
+        Table table = entityClass.getAnnotation(Table.class);
+        FindBy findBy = new FindBy(methodName, args, entityClass);
+
+        assert table != null;
+        String sql = "SELECT * FROM " + String.join(
+                " ",
+                table.name(),
+                findBy.getWhere(),
+                Function.getOrderBy(methodName, entityClass)
+        );
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            Function.setParams(preparedStatement, findBy.getParams());
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                while (resultSet.next()) {
+                    T entity = Function.getEntity(entityClass, resultSet);
+
+                    if (returnClass == List.class) {
+                        resultList.add(entity);
+                    } else {
+                        resultObject = entity;
+                        break;
+                    }
+                }
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        if (returnClass == List.class) {
+            return resultList;
+        } else {
+            return resultObject;
+        }
+    }
+
+    private Object minMaxCount(Method method, Object[] args) throws Throwable {
+        if (!entityClass.isAnnotationPresent(Table.class)) {
+            throw new IllegalArgumentException("A classe não possui a anotação @Table.");
+        }
+
+        int functionNameSize;
+        String columnName, function;
+        String methodName = method.getName();
+        Table table = entityClass.getAnnotation(Table.class);
+        FindBy findBy = new FindBy(methodName, args, entityClass);
+
+        if (methodName.startsWith("count")) {
+            functionNameSize = 5;
+        } else {
+            functionNameSize = 3;
+        }
+
+        function = methodName.substring(0, functionNameSize).toUpperCase();
+        if (methodName.contains("FindBy")) {
+            columnName = Function.getColumnName(entityClass, methodName.substring(functionNameSize, methodName.indexOf("FindBy")));
+        } else {
+            columnName = Function.getColumnName(entityClass, methodName.substring(functionNameSize));
+        }
+
+        assert table != null;
+        String sql = "SELECT " + function + "(" + columnName + ") FROM " + String.join(
+                " ",
+                table.name(),
+                findBy.getWhere(),
+                Function.getOrderBy(methodName, entityClass)
+        );
+
+        PreparedStatement preparedStatement = connection.prepareStatement(sql);
+        Function.setParams(preparedStatement, findBy.getParams());
+        return QueryCustom.getObject(preparedStatement, method.getReturnType());
+    }
+
+    public List<T> findAll() {
+        if (!entityClass.isAnnotationPresent(Table.class)) {
+            throw new IllegalArgumentException("A classe não possui a anotação @Table.");
+        }
+
+        List<T> entityList = new ArrayList<>();
+        Table table = entityClass.getAnnotation(Table.class);
+        assert table != null;
+        String sql = "SELECT * FROM " + table.name();
+
+        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                entityList.add(Function.getEntity(entityClass, resultSet));
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return entityList;
     }
 
     public T findById(ID id) {
@@ -89,6 +202,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
         int countPk = 0;
         Table table = entityClass.getAnnotation(Table.class);
+        assert table != null;
         sql.append(table.name()).append(" WHERE ");
 
         if (id instanceof List) {
@@ -102,6 +216,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
                     countPk++;
                     Column column = field.getAnnotation(Column.class);
+                    assert column != null;
                     sql.append(column.name()).append(" = ?");
                     first = false;
                 }
@@ -111,6 +226,7 @@ public class Repository<T, ID> implements InvocationHandler {
             for (Field field : entityClass.getDeclaredFields()) {
                 if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
                     Column column = field.getAnnotation(Column.class);
+                    assert column != null;
                     sql.append(column.name()).append(" = ?");
                     break;
                 }
@@ -146,6 +262,7 @@ public class Repository<T, ID> implements InvocationHandler {
                         if (field.isAnnotationPresent(Column.class)) {
                             Column column = field.getAnnotation(Column.class);
                             field.setAccessible(true);
+                            assert column != null;
                             Object value = resultSet.getObject(column.name());
                             field.set(obj, value);
                         }
@@ -158,191 +275,6 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         return obj;
-    }
-
-    public List<T> findAll() {
-        List<T> resultList = new ArrayList<>();
-        StringBuilder sql = new StringBuilder("SELECT * FROM ");
-
-        if (!entityClass.isAnnotationPresent(Table.class)) {
-            throw new IllegalArgumentException("A classe não possui a anotação @Table.");
-        }
-
-        Table table = entityClass.getAnnotation(Table.class);
-        sql.append(table.name());
-
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery(sql.toString())) {
-            while (resultSet.next()) {
-                T obj = entityClass.getDeclaredConstructor().newInstance();
-
-                for (Field field : entityClass.getDeclaredFields()) {
-                    if (field.isAnnotationPresent(Column.class)) {
-                        Column column = field.getAnnotation(Column.class);
-                        field.setAccessible(true);
-
-                        Object value = resultSet.getObject(column.name());
-                        field.set(obj, value);
-                    }
-                }
-
-                resultList.add(obj);
-            }
-
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return resultList;
-    }
-
-    private List<T> executeQueryEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
-        List<T> resultList = new ArrayList<>();
-
-        try {
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    T entity = entityClass.getDeclaredConstructor().newInstance();
-
-                    for (Field field : entityClass.getDeclaredFields()) {
-                        if (field.isAnnotationPresent(Column.class)) {
-                            Column column = field.getAnnotation(Column.class);
-                            String columnName = column.name();
-                            Object columnValue = resultSet.getObject(columnName);
-
-                            field.setAccessible(true);
-                            field.set(entity, columnValue);
-                        }
-                    }
-
-                    resultList.add(entity);
-                }
-            }
-
-            preparedStatement.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return resultList;
-    }
-
-    private T executeQuerySingleEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
-        T entity = null;
-
-        try {
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    entity = entityClass.getDeclaredConstructor().newInstance();
-
-                    for (Field field : entityClass.getDeclaredFields()) {
-                        if (field.isAnnotationPresent(Column.class)) {
-                            Column column = field.getAnnotation(Column.class);
-                            String columnName = column.name();
-                            Object columnValue = resultSet.getObject(columnName);
-
-                            field.setAccessible(true);
-                            field.set(entity, columnValue);
-                        }
-                    }
-                }
-            }
-
-            preparedStatement.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return entity;
-    }
-
-    private Map<String, Object> executeQueryMap(PreparedStatement preparedStatement) {
-        Map<String, Object> result = new LinkedHashMap<>();
-
-        try {
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    int columnCount = resultSet.getMetaData().getColumnCount();
-
-                    for (int i = 1; i <= columnCount; i++) {
-                        String columnName = resultSet.getMetaData().getColumnLabel(i);
-                        Object columnValue = resultSet.getObject(i);
-                        result.put(columnName, columnValue);
-                    }
-                }
-            }
-
-            preparedStatement.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        return result;
-    }
-
-    private List<Map<String, Object>> executeQueryListMap(PreparedStatement preparedStatement) {
-        List<Map<String, Object>> resultList = new ArrayList<>();
-
-        try {
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    Map<String, Object> row = new LinkedHashMap<>();
-                    int columnCount = resultSet.getMetaData().getColumnCount();
-
-                    for (int i = 1; i <= columnCount; i++) {
-                        String columnName = resultSet.getMetaData().getColumnLabel(i);
-                        Object columnValue = resultSet.getObject(i);
-                        row.put(columnName, columnValue);
-                    }
-
-                    resultList.add(row);
-                }
-            }
-
-            preparedStatement.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        return resultList;
-    }
-
-    private <R> R executeQuerySingleResult(PreparedStatement preparedStatement, Class<R> returnType) {
-        R obj = null;
-
-        try {
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    obj = resultSet.getObject(1, returnType);
-                }
-            }
-            preparedStatement.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        return obj;
-    }
-
-    private <R> List<R> executeQuerySingleResultList(PreparedStatement preparedStatement, Class<R> classList) {
-        List<R> resultList = new ArrayList<>();
-
-        try {
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    resultList.add(resultSet.getObject(1, classList));
-                }
-            }
-            preparedStatement.close();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-
-        return resultList;
     }
 
     private Integer insert(T entity) {
@@ -369,18 +301,16 @@ public class Repository<T, ID> implements InvocationHandler {
                 throw new IllegalArgumentException("A classe não possui a anotação @Table.");
             }
 
-            List<Field> primaryKeyFields  = this.getPrimaryKeyField(entity);
-            if (primaryKeyFields .isEmpty()) {
-                throw new IllegalArgumentException("A classe não possui a anotação @PrimaryKey.");
-            }
-
+            List<Field> primaryKeyFields  = Function.getPrimaryKeyField(entity);
             StringBuilder sql = new StringBuilder("SELECT COUNT(1) FROM ");
             Table table = entityClass.getAnnotation(Table.class);
+            assert table != null;
             sql.append(table.name()).append(" WHERE ");
 
             for (int i = 0; i < primaryKeyFields.size(); i++) {
                 Field primaryKeyField = primaryKeyFields.get(i);
                 Column column = primaryKeyField.getAnnotation(Column.class);
+                assert column != null;
                 sql.append(column.name()).append(" = ?");
 
                 if (i < primaryKeyFields.size() - 1) {
@@ -426,6 +356,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
         int countPk = 0;
         Table table = entityClass.getAnnotation(Table.class);
+        assert table != null;
         sql.append(table.name()).append(" WHERE ");
 
         if (id instanceof List) {
@@ -440,6 +371,7 @@ public class Repository<T, ID> implements InvocationHandler {
                     }
 
                     Column column = field.getAnnotation(Column.class);
+                    assert column != null;
                     if (keys.get(countPk) == null) {
                         sql.append(column.name()).append(" IS NULL");
                     } else {
@@ -454,6 +386,7 @@ public class Repository<T, ID> implements InvocationHandler {
             for (Field field : entityClass.getDeclaredFields()) {
                 if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
                     Column column = field.getAnnotation(Column.class);
+                    assert column != null;
                     sql.append(column.name()).append(" = ?");
                     break;
                 }
@@ -489,18 +422,6 @@ public class Repository<T, ID> implements InvocationHandler {
         return result;
     }
 
-    private List<Field> getPrimaryKeyField(Object entity) {
-        List<Field> primaryKeyFields = new ArrayList<>();
-
-        for (Field field : entity.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(PrimaryKey.class)) {
-                primaryKeyFields.add(field);
-            }
-        }
-
-        return primaryKeyFields;
-    }
-
     private int execute(T entity, String sql, TypeSQL typeSQL)
             throws SQLException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         Class<?> clazz = entity.getClass();
@@ -508,6 +429,7 @@ public class Repository<T, ID> implements InvocationHandler {
         Table table = clazz.getAnnotation(Table.class);
 
         Map<String, Object> mapColumn = new HashMap<>();
+        assert table != null;
         ResultSet columns = connection.getMetaData().getColumns(
                 null,
                 null,
@@ -520,7 +442,7 @@ public class Repository<T, ID> implements InvocationHandler {
             int dataType = columns.getInt("DATA_TYPE");
 
             if (defaultValue != null) {
-                mapColumn.put(columnName, Util.convertDefaultValue(defaultValue, dataType));
+                mapColumn.put(columnName, Function.convertDefaultValue(defaultValue, dataType));
             }
         }
 
@@ -539,6 +461,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
                             Object value = field.get(entity);
                             if (Objects.isNull(value)) {
+                                assert column != null;
                                 value = mapColumn.get(column.name());
                             }
 
@@ -561,6 +484,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
                             Object value = field.get(entity);
                             if (Objects.isNull(value)) {
+                                assert column != null;
                                 value = mapColumn.get(column.name());
                             }
 
