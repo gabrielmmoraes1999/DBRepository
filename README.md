@@ -18,3 +18,9 @@ ________________________________________________________________________________
 # Historico de Versões
 ## v1.0 - 19/10/2024
 - Versão inicial
+
+## v1.0.2 - 24/12/2024
+- Adicionado propriedade da conexão
+
+## v1.1.0 - 19/04/2025
+- Adicionado opção de select sem uso da anotação 'Query'.
