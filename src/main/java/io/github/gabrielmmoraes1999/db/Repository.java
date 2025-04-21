@@ -237,7 +237,7 @@ public class Repository<T, ID> implements InvocationHandler {
                 List<Object> keys = (List<Object>) id;
                 Function.setParams(preparedStatement, keys);
             } else {
-                Function.setParam(preparedStatement, id);
+                Function.setPreparedStatement(preparedStatement, 1, id);
             }
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -307,7 +307,7 @@ public class Repository<T, ID> implements InvocationHandler {
                 for (int index = 0; index < primaryKeyFields.size(); index++) {
                     Field primaryKeyField = primaryKeyFields.get(index);
                     primaryKeyField.setAccessible(true);
-                    preparedStatement.setObject(index + 1, primaryKeyField.get(entity));
+                    Function.setPreparedStatement(preparedStatement, index + 1, primaryKeyField.get(entity));
                 }
 
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -390,13 +390,13 @@ public class Repository<T, ID> implements InvocationHandler {
                 int index = 1;
                 for (Object value : keys) {
                     if (value != null) {
-                        preparedStatement.setObject(index, value);
+                        Function.setPreparedStatement(preparedStatement, index, value);
                         index++;
                     }
                 }
 
             } else {
-                preparedStatement.setObject(1, id);
+                Function.setPreparedStatement(preparedStatement, 1, id);
             }
 
             result = preparedStatement.executeUpdate();
@@ -412,7 +412,7 @@ public class Repository<T, ID> implements InvocationHandler {
         Field[] fields = clazz.getDeclaredFields();
         Table table = clazz.getAnnotation(Table.class);
 
-        Map<String, Object> mapColumn = new HashMap<>();
+        Map<String, Object> mapColumn = new LinkedHashMap<>();
         assert table != null;
         ResultSet columns = connection.getMetaData().getColumns(
                 null,
@@ -449,7 +449,7 @@ public class Repository<T, ID> implements InvocationHandler {
                                 value = mapColumn.get(column.name());
                             }
 
-                            preparedStatement.setObject(index, value);
+                            Function.setPreparedStatement(preparedStatement, index, value);
                             index++;
                         }
                     }
@@ -472,14 +472,14 @@ public class Repository<T, ID> implements InvocationHandler {
                                 value = mapColumn.get(column.name());
                             }
 
-                            preparedStatement.setObject(index, value);
+                            Function.setPreparedStatement(preparedStatement, index, value);
                             index++;
                         }
                     }
 
                     for (Field field : primaryKeyList) {
                         field.setAccessible(true);
-                        preparedStatement.setObject(index, field.get(entity));
+                        Function.setPreparedStatement(preparedStatement, index, field.get(entity));
                         index++;
                     }
                     break;

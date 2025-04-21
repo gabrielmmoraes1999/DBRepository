@@ -4,6 +4,7 @@ import io.github.gabrielmmoraes1999.db.annotation.Delete;
 import io.github.gabrielmmoraes1999.db.annotation.Param;
 import io.github.gabrielmmoraes1999.db.annotation.Query;
 import io.github.gabrielmmoraes1999.db.annotation.Update;
+import io.github.gabrielmmoraes1999.db.util.Function;
 
 import java.lang.reflect.Method;
 import java.sql.*;
@@ -24,6 +25,7 @@ public class QuerySQL {
     @Deprecated
     public String get() {
         Query queryAnnotation = method.getAnnotation(Query.class);
+        assert queryAnnotation != null;
         String query = queryAnnotation.value();
 
         if (args != null) {
@@ -66,12 +68,13 @@ public class QuerySQL {
             }
         }
 
+        assert queryAnnotation != null;
         SQLParameterMapper mapper = new SQLParameterMapper(queryAnnotation.value());
         PreparedStatement preparedStatement = connection.prepareStatement(mapper.getParsedQuery());
         List<String> parameters = mapper.getParameters();
 
         for (int index = 0; index < parameters.size(); index++) {
-            preparedStatement.setObject(index + 1, mapValues.get(parameters.get(index)));
+            Function.setPreparedStatement(preparedStatement, index + 1, mapValues.get(parameters.get(index)));
         }
 
         return preparedStatement;
@@ -80,6 +83,7 @@ public class QuerySQL {
     @Deprecated
     public String getUpdate() {
         Update updateAnnotation = method.getAnnotation(Update.class);
+        assert updateAnnotation != null;
         String update = updateAnnotation.value();
 
         if (args != null) {
@@ -115,6 +119,7 @@ public class QuerySQL {
     public int update(Connection connection) throws SQLException {
         Update updateAnnotation = method.getAnnotation(Update.class);
         Map<String, Object> mapValues = new HashMap<>();
+        assert updateAnnotation != null;
         String update = updateAnnotation.value();
         update = update.replace(" = ", "=");
         update = update.replace("=", " = ");
@@ -143,7 +148,7 @@ public class QuerySQL {
                 String part = parts[index];
                 String[] words = part.split(" ");
                 String columnName = words[words.length - 1];
-                preparedStatement.setObject(index + 1, mapValues.get(columnName));
+                Function.setPreparedStatement(preparedStatement, index + 1, mapValues.get(columnName));
             }
 
             result = preparedStatement.executeUpdate();
@@ -155,6 +160,7 @@ public class QuerySQL {
     @Deprecated
     public String getDelete() {
         Delete deleteAnnotation = method.getAnnotation(Delete.class);
+        assert deleteAnnotation != null;
         String delete = deleteAnnotation.value();
 
         if (args != null) {
@@ -190,6 +196,7 @@ public class QuerySQL {
     public int delete(Connection connection) throws SQLException {
         Delete deleteAnnotation = method.getAnnotation(Delete.class);
         Map<String, Object> mapValues = new HashMap<>();
+        assert deleteAnnotation != null;
         String delete = deleteAnnotation.value();
         delete = delete.replace(" = ", "=");
         delete = delete.replace("=", " = ");
@@ -218,7 +225,7 @@ public class QuerySQL {
                 String part = parts[index];
                 String[] words = part.split(" ");
                 String columnName = words[words.length - 1];
-                preparedStatement.setObject(index + 1, mapValues.get(columnName));
+                Function.setPreparedStatement(preparedStatement, index + 1, mapValues.get(columnName));
             }
 
             result = preparedStatement.executeUpdate();
@@ -226,7 +233,7 @@ public class QuerySQL {
         return result;
     }
 
-    // Método auxiliar para converter byte[] em uma string hexadecimal
+    // Metodo auxiliar para converter byte[] em uma string hexadecimal
     private String bytesToHex(byte[] bytes) {
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) {
