@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.1.0</version>
+    <version>1.1.1</version>
 </dependency>
 ```
 
@@ -24,3 +24,6 @@ ________________________________________________________________________________
 
 ## v1.1.0 - 19/04/2025
 - Adicionado opção de select sem uso da anotação 'Query'.
+
+## v1.1.1 - 21/04/2025
+- Alterado alguns para não usar mais o 'setObject' para função interna 'setPreparedStatement'.
