@@ -40,6 +40,38 @@ public class Function {
         return orderBy.toString();
     }
 
+    public static void setParam(PreparedStatement preparedStatement, Object value) throws SQLException {
+        int position = 1;
+
+        if (Objects.isNull(value)) {
+            preparedStatement.setObject(position, null);
+        } else {
+            Class<?> classType = Function.getWrapperClass(value.getClass());
+
+            if (classType == Integer.class) {
+                preparedStatement.setInt(position, (Integer) value);
+            } else if (classType == Double.class) {
+                preparedStatement.setDouble(position, (Double) value);
+            } else if (classType == BigDecimal.class) {
+                preparedStatement.setBigDecimal(position, (BigDecimal) value);
+            } else if (classType == Boolean.class) {
+                preparedStatement.setBoolean(position, (Boolean) value);
+            } else if (classType == String.class) {
+                preparedStatement.setString(position, (String) value);
+            } else if (classType == Date.class) {
+                preparedStatement.setDate(position, (Date) value);
+            } else if (classType == Timestamp.class) {
+                preparedStatement.setTimestamp(position, (Timestamp) value);
+            } else if (classType == Time.class) {
+                preparedStatement.setTime(position, (Time) value);
+            } else if (classType == byte[].class) {
+                preparedStatement.setBytes(position, (byte[]) value);
+            } else {
+                preparedStatement.setObject(position, value);
+            }
+        }
+    }
+
     public static void setParams(PreparedStatement preparedStatement, List<Object> params) throws SQLException {
         for (int index = 0; index < params.size(); index++) {
             Object value = params.get(index);
@@ -86,7 +118,23 @@ public class Function {
         throw new RuntimeException("Coluna não encontrada para o campo: " + fieldName);
     }
 
-    public static List<Field> getPrimaryKeyField(Object entity) {
+    public static <T> List<Field> getPrimaryKeyField(Class<T> entityClass) {
+        List<Field> primaryKeyFields = new ArrayList<>();
+
+        for (Field field : entityClass.getDeclaredFields()) {
+            if (field.isAnnotationPresent(PrimaryKey.class)) {
+                primaryKeyFields.add(field);
+            }
+        }
+
+        if (primaryKeyFields.isEmpty()) {
+            throw new IllegalArgumentException("A classe não possui a anotação @PrimaryKey.");
+        }
+
+        return primaryKeyFields;
+    }
+
+    public static <T> List<Field> getPrimaryKeyField(T entity) {
         List<Field> primaryKeyFields = new ArrayList<>();
 
         for (Field field : entity.getClass().getDeclaredFields()) {
