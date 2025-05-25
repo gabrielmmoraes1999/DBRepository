@@ -16,14 +16,15 @@ Veja a Wiki https://github.com/gabrielmmoraes1999/DBRepository/wiki, para ter um
 ________________________________________________________________________________________________
 
 # Historico de Versões
-## v1.0 - 19/10/2024
-- Versão inicial
 
-## v1.0.2 - 24/12/2024
-- Adicionado propriedade da conexão
+## v1.1.1 - 21/04/2025
+- Alterado alguns para não usar mais o 'setObject' para função interna 'setPreparedStatement'.
 
 ## v1.1.0 - 19/04/2025
 - Adicionado opção de select sem uso da anotação 'Query'.
 
-## v1.1.1 - 21/04/2025
-- Alterado alguns para não usar mais o 'setObject' para função interna 'setPreparedStatement'.
+## v1.0.2 - 24/12/2024
+- Adicionado propriedade da conexão
+
+## v1.0 - 19/10/2024
+- Versão inicial
