@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.1.1</version>
+    <version>1.1.2</version>
 </dependency>
 ```
 
@@ -16,6 +16,9 @@ Veja a Wiki https://github.com/gabrielmmoraes1999/DBRepository/wiki, para ter um
 ________________________________________________________________________________________________
 
 # Historico de Versões
+
+## v1.1.2 - 22/06/2025
+- Removido a opção entity da anotação 'Query', agora será capturado automaticamente pelo retorno da função.
 
 ## v1.1.1 - 21/04/2025
 - Alterado alguns para não usar mais o 'setObject' para função interna 'setPreparedStatement'.

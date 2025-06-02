@@ -29,30 +29,24 @@ public class Repository<T, ID> implements InvocationHandler {
         String nameMethod = method.getName();
 
         if (method.isAnnotationPresent(Query.class)) {
-            Query queryAnnotation = method.getAnnotation(Query.class);
             PreparedStatement preparedStatement = new QuerySQL(method, args).getPreparedStatement(connection);
 
-            assert queryAnnotation != null;
-            if (queryAnnotation.entity()) {
-                if (method.getReturnType().isAssignableFrom(List.class)) {
-                    return QueryCustom.getEntityList(preparedStatement, entityClass);
-                } else {
-                    return QueryCustom.getEntity(preparedStatement, entityClass);
-                }
-            } else {
-                if (method.getReturnType().isAssignableFrom(List.class)) {
-                    Class<?> classList = Function.getClassList(method);
+            if (method.getReturnType().isAssignableFrom(entityClass)) {
+                return QueryCustom.getEntity(preparedStatement, entityClass);
+            } else if (method.getReturnType().isAssignableFrom(List.class)) {
+                Class<?> classList = Function.getClassList(method);
 
-                    if (classList == Map.class) {
-                        return QueryCustom.getMapList(preparedStatement);
-                    } else {
-                        return QueryCustom.getObjectList(preparedStatement, classList);
-                    }
-                } else if (method.getReturnType().isAssignableFrom(Map.class)) {
-                    return QueryCustom.getMap(preparedStatement);
+                if (classList == entityClass) {
+                    return QueryCustom.getEntityList(preparedStatement, entityClass);
+                } else if (classList == Map.class) {
+                    return QueryCustom.getMapList(preparedStatement);
                 } else {
-                    return QueryCustom.getObject(preparedStatement, method.getReturnType());
+                    return QueryCustom.getObjectList(preparedStatement, classList);
                 }
+            } else if (method.getReturnType().isAssignableFrom(Map.class)) {
+                return QueryCustom.getMap(preparedStatement);
+            } else {
+                return QueryCustom.getObject(preparedStatement, method.getReturnType());
             }
         } else if (method.isAnnotationPresent(Update.class)) {
             return new QuerySQL(method, args).update(connection);
@@ -98,10 +92,9 @@ public class Repository<T, ID> implements InvocationHandler {
 
         T resultObject = null;
         List<T> resultList = new ArrayList<>();
-        Table table = entityClass.getAnnotation(Table.class);
+        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
         FindBy findBy = new FindBy(methodName, args, entityClass);
 
-        assert table != null;
         String sql = "SELECT * FROM " + String.join(
                 " ",
                 table.name(),
@@ -143,7 +136,7 @@ public class Repository<T, ID> implements InvocationHandler {
         int functionNameSize;
         String columnName, function;
         String methodName = method.getName();
-        Table table = entityClass.getAnnotation(Table.class);
+        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
         FindBy findBy = new FindBy(methodName, args, entityClass);
 
         if (methodName.startsWith("count")) {
@@ -159,7 +152,6 @@ public class Repository<T, ID> implements InvocationHandler {
             columnName = Function.getColumnName(entityClass, methodName.substring(functionNameSize));
         }
 
-        assert table != null;
         String sql = "SELECT " + function + "(" + columnName + ") FROM " + String.join(
                 " ",
                 table.name(),
@@ -178,8 +170,7 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         List<T> entityList = new ArrayList<>();
-        Table table = entityClass.getAnnotation(Table.class);
-        assert table != null;
+        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
         String sql = "SELECT * FROM " + table.name();
 
         try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
@@ -201,14 +192,12 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         List<Field> primaryKeyFields  = Function.getPrimaryKeyField(entityClass);
-        Table table = entityClass.getAnnotation(Table.class);
-        assert table != null;
+        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
         sql.append(table.name()).append(" WHERE ");
 
         for (int i = 0; i < primaryKeyFields.size(); i++) {
             Field primaryKeyField = primaryKeyFields.get(i);
-            Column column = primaryKeyField.getAnnotation(Column.class);
-            assert column != null;
+            Column column = Objects.requireNonNull(primaryKeyField.getAnnotation(Column.class));
             sql.append(column.name()).append(" = ?");
 
             if (i < primaryKeyFields.size() - 1) {
@@ -246,9 +235,8 @@ public class Repository<T, ID> implements InvocationHandler {
 
                     for (Field field : entityClass.getDeclaredFields()) {
                         if (field.isAnnotationPresent(Column.class)) {
-                            Column column = field.getAnnotation(Column.class);
+                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
                             field.setAccessible(true);
-                            assert column != null;
                             field.set(result, resultSet.getObject(column.name()));
                         }
                     }
@@ -287,14 +275,12 @@ public class Repository<T, ID> implements InvocationHandler {
 
             List<Field> primaryKeyFields = Function.getPrimaryKeyField(entity);
             StringBuilder sql = new StringBuilder("SELECT COUNT(1) FROM ");
-            Table table = entityClass.getAnnotation(Table.class);
-            assert table != null;
+            Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
             sql.append(table.name()).append(" WHERE ");
 
             for (int i = 0; i < primaryKeyFields.size(); i++) {
                 Field primaryKeyField = primaryKeyFields.get(i);
-                Column column = primaryKeyField.getAnnotation(Column.class);
-                assert column != null;
+                Column column = Objects.requireNonNull(primaryKeyField.getAnnotation(Column.class));
                 sql.append(column.name()).append(" = ?");
 
                 if (i < primaryKeyFields.size() - 1) {
@@ -339,8 +325,7 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         int countPk = 0;
-        Table table = entityClass.getAnnotation(Table.class);
-        assert table != null;
+        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
         sql.append(table.name()).append(" WHERE ");
 
         if (id instanceof List) {
@@ -354,8 +339,7 @@ public class Repository<T, ID> implements InvocationHandler {
                         sql.append(" AND ");
                     }
 
-                    Column column = field.getAnnotation(Column.class);
-                    assert column != null;
+                    Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
                     if (keys.get(countPk) == null) {
                         sql.append(column.name()).append(" IS NULL");
                     } else {
@@ -369,8 +353,7 @@ public class Repository<T, ID> implements InvocationHandler {
         } else {
             for (Field field : entityClass.getDeclaredFields()) {
                 if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
-                    Column column = field.getAnnotation(Column.class);
-                    assert column != null;
+                    Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
                     sql.append(column.name()).append(" = ?");
                     break;
                 }
@@ -410,10 +393,9 @@ public class Repository<T, ID> implements InvocationHandler {
             throws SQLException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         Class<?> clazz = entity.getClass();
         Field[] fields = clazz.getDeclaredFields();
-        Table table = clazz.getAnnotation(Table.class);
+        Table table = Objects.requireNonNull(clazz.getAnnotation(Table.class));
 
         Map<String, Object> mapColumn = new LinkedHashMap<>();
-        assert table != null;
         ResultSet columns = connection.getMetaData().getColumns(
                 null,
                 null,
@@ -440,12 +422,11 @@ public class Repository<T, ID> implements InvocationHandler {
                 case INSERT:
                     for (Field field : fields) {
                         if (field.isAnnotationPresent(Column.class)) {
-                            Column column = field.getAnnotation(Column.class);
+                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
                             field.setAccessible(true);
 
                             Object value = field.get(entity);
                             if (Objects.isNull(value)) {
-                                assert column != null;
                                 value = mapColumn.get(column.name());
                             }
 
@@ -463,12 +444,11 @@ public class Repository<T, ID> implements InvocationHandler {
 
                     for (Field field : fields) {
                         if (field.isAnnotationPresent(Column.class) && !primaryKeyList.contains(field)) {
-                            Column column = field.getAnnotation(Column.class);
+                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
                             field.setAccessible(true);
 
                             Object value = field.get(entity);
                             if (Objects.isNull(value)) {
-                                assert column != null;
                                 value = mapColumn.get(column.name());
                             }
 
