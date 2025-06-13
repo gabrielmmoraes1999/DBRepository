@@ -3,6 +3,8 @@ package io.github.gabrielmmoraes1999.db;
 import io.github.gabrielmmoraes1999.db.annotation.*;
 import io.github.gabrielmmoraes1999.db.sql.*;
 import io.github.gabrielmmoraes1999.db.util.*;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.lang.reflect.*;
 import java.sql.*;
@@ -30,23 +32,28 @@ public class Repository<T, ID> implements InvocationHandler {
 
         if (method.isAnnotationPresent(Query.class)) {
             PreparedStatement preparedStatement = new QuerySQL(method, args).getPreparedStatement(connection);
+            Class<?> returnType = method.getReturnType();
 
-            if (method.getReturnType().isAssignableFrom(entityClass)) {
+            if (returnType.isAssignableFrom(entityClass)) {
                 return QueryCustom.getEntity(preparedStatement, entityClass);
-            } else if (method.getReturnType().isAssignableFrom(List.class)) {
+            } else if (returnType.isAssignableFrom(List.class)) {
                 Class<?> classList = Function.getClassList(method);
 
-                if (classList == entityClass) {
+                if (classList.isAssignableFrom(entityClass)) {
                     return QueryCustom.getEntityList(preparedStatement, entityClass);
-                } else if (classList == Map.class) {
+                } else if (classList.isAssignableFrom(Map.class)) {
                     return QueryCustom.getMapList(preparedStatement);
                 } else {
                     return QueryCustom.getObjectList(preparedStatement, classList);
                 }
-            } else if (method.getReturnType().isAssignableFrom(Map.class)) {
+            } else if (returnType.isAssignableFrom(Map.class)) {
                 return QueryCustom.getMap(preparedStatement);
+            } else if (returnType.isAssignableFrom(JSONObject.class)) {
+                return QueryCustom.getJsonObject(preparedStatement);
+            } else if (returnType.isAssignableFrom(JSONArray.class)) {
+                return QueryCustom.getJsonArray(preparedStatement);
             } else {
-                return QueryCustom.getObject(preparedStatement, method.getReturnType());
+                return QueryCustom.getObject(preparedStatement, returnType);
             }
         } else if (method.isAnnotationPresent(Update.class)) {
             return new QuerySQL(method, args).update(connection);
@@ -90,8 +97,11 @@ public class Repository<T, ID> implements InvocationHandler {
             throw new IllegalArgumentException("A classe não possui a anotação @Table.");
         }
 
-        T resultObject = null;
+        T resultClass = null;
         List<T> resultList = new ArrayList<>();
+        JSONObject jsonObject = new JSONObject();
+        JSONArray jsonArray = new JSONArray();
+
         Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
         FindBy findBy = new FindBy(methodName, args, entityClass);
 
@@ -106,14 +116,32 @@ public class Repository<T, ID> implements InvocationHandler {
             Function.setParams(preparedStatement, findBy.getParams());
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    T entity = Function.getEntity(entityClass, resultSet);
+                ResultSetMetaData metaData = resultSet.getMetaData();
+                int columnCount = metaData.getColumnCount();
 
-                    if (returnClass == List.class) {
-                        resultList.add(entity);
-                    } else {
-                        resultObject = entity;
+                while (resultSet.next()) {
+                    if (returnClass.isAssignableFrom(List.class)) {
+                        resultList.add(Function.getEntity(entityClass, resultSet));
+                    } else if (returnClass.isAssignableFrom(entityClass)) {
+                        resultClass = Function.getEntity(entityClass, resultSet);
                         break;
+                    } else if (returnClass.isAssignableFrom(JSONObject.class)) {
+                        for (int i = 1; i <= columnCount; i++) {
+                            String columnName = metaData.getColumnLabel(i);
+                            Object value = resultSet.getObject(i);
+                            jsonObject.put(columnName, value);
+                        }
+                        break;
+                    } else if (returnClass.isAssignableFrom(JSONArray.class)) {
+                        JSONObject jsonObjectRow = new JSONObject();
+
+                        for (int i = 1; i <= columnCount; i++) {
+                            String columnName = metaData.getColumnLabel(i);
+                            Object value = resultSet.getObject(i);
+                            jsonObjectRow.put(columnName, value);
+                        }
+
+                        jsonArray.put(jsonObjectRow);
                     }
                 }
             }
@@ -121,10 +149,16 @@ public class Repository<T, ID> implements InvocationHandler {
             throw new RuntimeException(e);
         }
 
-        if (returnClass == List.class) {
+        if (returnClass.isAssignableFrom(List.class)) {
             return resultList;
+        } else if (returnClass.isAssignableFrom(entityClass)) {
+            return resultClass;
+        } else if (returnClass.isAssignableFrom(JSONObject.class)) {
+            return jsonObject;
+        } else if (returnClass.isAssignableFrom(JSONArray.class)) {
+            return jsonArray;
         } else {
-            return resultObject;
+            return null;
         }
     }
 
