@@ -1,7 +1,11 @@
 package io.github.gabrielmmoraes1999.db.util;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -52,11 +56,12 @@ public class QueryCustom {
         try {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    int columnCount = resultSet.getMetaData().getColumnCount();
+                ResultSetMetaData metaData = resultSet.getMetaData();
+                int columnCount = metaData.getColumnCount();
 
+                if (resultSet.next()) {
                     for (int i = 1; i <= columnCount; i++) {
-                        String columnName = resultSet.getMetaData().getColumnLabel(i);
+                        String columnName = metaData.getColumnLabel(i);
                         Object columnValue = resultSet.getObject(i);
                         result.put(columnName, columnValue);
                     }
@@ -112,12 +117,14 @@ public class QueryCustom {
         try {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                ResultSetMetaData metaData = resultSet.getMetaData();
+                int columnCount = metaData.getColumnCount();
+
                 while (resultSet.next()) {
                     Map<String, Object> row = new LinkedHashMap<>();
-                    int columnCount = resultSet.getMetaData().getColumnCount();
 
                     for (int i = 1; i <= columnCount; i++) {
-                        String columnName = resultSet.getMetaData().getColumnLabel(i);
+                        String columnName = metaData.getColumnLabel(i);
                         Object columnValue = resultSet.getObject(i);
                         row.put(columnName, columnValue);
                     }
@@ -132,6 +139,62 @@ public class QueryCustom {
         }
 
         return resultList;
+    }
+
+    public static JSONObject getJsonObject(PreparedStatement preparedStatement) {
+        JSONObject jsonObject = new JSONObject();
+
+        try {
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                ResultSetMetaData metaData = resultSet.getMetaData();
+                int columnCount = metaData.getColumnCount();
+
+                if (resultSet.next()) {
+                    for (int i = 1; i <= columnCount; i++) {
+                        String columnName = metaData.getColumnLabel(i);
+                        Object value = resultSet.getObject(i);
+                        jsonObject.put(columnName, value);
+                    }
+                }
+            }
+
+            preparedStatement.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return jsonObject;
+    }
+
+    public static JSONArray getJsonArray(PreparedStatement preparedStatement) {
+        JSONArray jsonArray = new JSONArray();
+
+        try {
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                ResultSetMetaData metaData = resultSet.getMetaData();
+                int columnCount = metaData.getColumnCount();
+
+                while (resultSet.next()) {
+                    JSONObject jsonObject = new JSONObject();
+
+                    for (int i = 1; i <= columnCount; i++) {
+                        String columnName = metaData.getColumnLabel(i);
+                        Object value = resultSet.getObject(i);
+                        jsonObject.put(columnName, value);
+                    }
+
+                    jsonArray.put(jsonObject);
+                }
+            }
+
+            preparedStatement.close();
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
+        return jsonArray;
     }
 
 }
