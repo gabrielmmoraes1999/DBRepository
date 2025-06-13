@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.1.2</version>
+    <version>1.2.0</version>
 </dependency>
 ```
 
@@ -15,9 +15,12 @@ Veja a Wiki https://github.com/gabrielmmoraes1999/DBRepository/wiki, para ter um
 
 ________________________________________________________________________________________________
 
-# Historico de Versões
+# Histórico de Versões
 
-## v1.1.2 - 22/06/2025
+## v1.2.0 - 12/06/2025
+- Adicionado suporte return JSONObject e JSONArray.
+
+## v1.1.2 - 22/05/2025
 - Removido a opção entity da anotação 'Query', agora será capturado automaticamente pelo retorno da função.
 
 ## v1.1.1 - 21/04/2025
