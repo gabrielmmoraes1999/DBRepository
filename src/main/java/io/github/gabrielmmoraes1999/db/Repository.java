@@ -510,10 +510,13 @@ public class Repository<T, ID> implements InvocationHandler {
         ParameterizedType parameterizedType = (ParameterizedType) repositoryInterface.getGenericInterfaces()[0];
 
         Class<T> entityClass = (Class<T>) parameterizedType.getActualTypeArguments()[0];
-        Repository<T, ID> handler = new Repository<>(entityClass, DataBase.conn);
+        Repository<T, ID> handler = new Repository<>(entityClass);
 
-        return (T) Proxy.newProxyInstance(repositoryInterface.getClassLoader(),
-                new Class<?>[]{repositoryInterface}, handler);
+        return (T) Proxy.newProxyInstance(
+                repositoryInterface.getClassLoader(),
+                new Class<?>[]{repositoryInterface},
+                handler
+        );
     }
 
     @SuppressWarnings("unchecked")
@@ -523,8 +526,11 @@ public class Repository<T, ID> implements InvocationHandler {
         Class<T> entityClass = (Class<T>) parameterizedType.getActualTypeArguments()[0];
         Repository<T, ID> handler = new Repository<>(entityClass, connection);
 
-        return (T) Proxy.newProxyInstance(repositoryInterface.getClassLoader(),
-                new Class<?>[]{repositoryInterface}, handler);
+        return (T) Proxy.newProxyInstance(
+                repositoryInterface.getClassLoader(),
+                new Class<?>[]{repositoryInterface},
+                handler
+        );
     }
 
 }
