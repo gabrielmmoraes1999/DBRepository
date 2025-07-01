@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.2.0</version>
+    <version>1.2.1</version>
 </dependency>
 ```
 
@@ -16,6 +16,9 @@ Veja a Wiki https://github.com/gabrielmmoraes1999/DBRepository/wiki, para ter um
 ________________________________________________________________________________________________
 
 # Histórico de Versões
+
+## v1.2.1 - 30/06/2025
+- Adicionado suporte a tipo de class Enum.
 
 ## v1.2.0 - 12/06/2025
 - Adicionado suporte return JSONObject e JSONArray.

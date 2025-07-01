@@ -271,7 +271,12 @@ public class Repository<T, ID> implements InvocationHandler {
                         if (field.isAnnotationPresent(Column.class)) {
                             Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
                             field.setAccessible(true);
-                            field.set(result, resultSet.getObject(column.name()));
+
+                            if (field.getType().isEnum()) {
+                                field.set(result, field.getType().getEnumConstants()[resultSet.getInt(column.name())]);
+                            } else {
+                                field.set(result, resultSet.getObject(column.name()));
+                            }
                         }
                     }
                 }

@@ -175,7 +175,11 @@ public class Function {
                 field.setAccessible(true);
 
                 assert column != null;
-                field.set(entity, resultSet.getObject(column.name()));
+                if (field.getType().isEnum()) {
+                    field.set(entity, field.getType().getEnumConstants()[resultSet.getInt(column.name())]);
+                } else {
+                    field.set(entity, resultSet.getObject(column.name()));
+                }
             }
         }
         return entity;
@@ -205,6 +209,8 @@ public class Function {
                 preparedStatement.setTime(position, (Time) value);
             } else if (classType == byte[].class) {
                 preparedStatement.setBytes(position, (byte[]) value);
+            } else if (classType.isEnum()) {
+                preparedStatement.setInt(position, ((Enum<?>) value).ordinal());
             } else {
                 preparedStatement.setObject(position, value);
             }
