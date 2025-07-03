@@ -119,52 +119,6 @@ public class Function {
         return primitiveType; // No caso de outros tipos
     }
 
-    public static Object convertDefaultValue(String defaultValue, int dataType) {
-        if (defaultValue == null) {
-            return null; // Sem valor padrão
-        }
-
-        switch (dataType) {
-            case Types.BOOLEAN:
-            case Types.BIT:
-                // O valor padrão no SQL pode ser 0/1 ou 'TRUE'/'FALSE'
-                return Boolean.parseBoolean(defaultValue.equalsIgnoreCase("true") ? "true" : "false");
-
-            case Types.INTEGER:
-            case Types.SMALLINT:
-            case Types.TINYINT:
-                return Integer.parseInt(defaultValue);
-
-            case Types.BIGINT:
-                return Long.parseLong(defaultValue);
-
-            case Types.FLOAT:
-            case Types.DOUBLE:
-            case Types.REAL:
-                return Double.parseDouble(defaultValue);
-
-            case Types.DECIMAL:
-            case Types.NUMERIC:
-                return new java.math.BigDecimal(defaultValue);
-
-            case Types.CHAR:
-            case Types.VARCHAR:
-            case Types.LONGVARCHAR:
-                // Remover aspas simples ou duplas do valor padrão
-                return defaultValue.replace("'", "").replace("\"", "");
-
-            case Types.DATE:
-                return Date.valueOf(defaultValue);
-
-            case Types.TIMESTAMP:
-                return Timestamp.valueOf(defaultValue);
-
-            default:
-                // Caso genérico, retornar o valor como String
-                return defaultValue;
-        }
-    }
-
     public static <T> T getEntity(Class<T> entityClass, ResultSet resultSet)
             throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, SQLException {
         T entity = entityClass.getDeclaredConstructor().newInstance();
@@ -216,4 +170,23 @@ public class Function {
             }
         }
     }
+
+    public static List<String> extractColumns(String sql) {
+        List<String> columns = new ArrayList<>();
+
+        Pattern pattern = Pattern.compile("INSERT INTO\\s+\\w+\\s*\\(([^)]+)\\)", Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(sql);
+
+        if (matcher.find()) {
+            String columnPart = matcher.group(1);
+            String[] columnArray = columnPart.split(",");
+
+            for (String col : columnArray) {
+                columns.add(col.trim());
+            }
+        }
+
+        return columns;
+    }
+
 }

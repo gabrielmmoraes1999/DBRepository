@@ -432,45 +432,25 @@ public class Repository<T, ID> implements InvocationHandler {
             throws SQLException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
         Class<?> clazz = entity.getClass();
         Field[] fields = clazz.getDeclaredFields();
-        Table table = Objects.requireNonNull(clazz.getAnnotation(Table.class));
-
-        Map<String, Object> mapColumn = new LinkedHashMap<>();
-        ResultSet columns = connection.getMetaData().getColumns(
-                null,
-                null,
-                table.name(),
-                null);
-
-        while (columns.next()) {
-            String columnName = columns.getString("COLUMN_NAME").trim();
-            String defaultValue = columns.getString("COLUMN_DEF");
-            int dataType = columns.getInt("DATA_TYPE");
-
-            if (defaultValue != null) {
-                mapColumn.put(columnName, Function.convertDefaultValue(defaultValue, dataType));
-            }
-        }
 
         int result;
         int index = 1;
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             List<Field> primaryKeyList = new ArrayList<>();
+            List<String> columnList = Function.extractColumns(sql);
 
             switch (typeSQL) {
                 case INSERT:
                     for (Field field : fields) {
                         if (field.isAnnotationPresent(Column.class)) {
-                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
                             field.setAccessible(true);
+                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
 
-                            Object value = field.get(entity);
-                            if (Objects.isNull(value)) {
-                                value = mapColumn.get(column.name());
+                            if (columnList.contains(column.name())) {
+                                Function.setPreparedStatement(preparedStatement, index, field.get(entity));
+                                index++;
                             }
-
-                            Function.setPreparedStatement(preparedStatement, index, value);
-                            index++;
                         }
                     }
                     break;
@@ -483,15 +463,8 @@ public class Repository<T, ID> implements InvocationHandler {
 
                     for (Field field : fields) {
                         if (field.isAnnotationPresent(Column.class) && !primaryKeyList.contains(field)) {
-                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
                             field.setAccessible(true);
-
-                            Object value = field.get(entity);
-                            if (Objects.isNull(value)) {
-                                value = mapColumn.get(column.name());
-                            }
-
-                            Function.setPreparedStatement(preparedStatement, index, value);
+                            Function.setPreparedStatement(preparedStatement, index, field.get(entity));
                             index++;
                         }
                     }
