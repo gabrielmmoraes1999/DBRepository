@@ -10,26 +10,19 @@ public class DataBase {
     protected static Connection conn;
 
     public static void createConnection(String url) throws SQLException {
-        conn = DriverManager.getConnection(url);
+        conn = getConnection(url);
     }
 
     public static void createConnection(String url, Properties info) throws SQLException {
-        conn = DriverManager.getConnection(url, info);
+        conn = getConnection(url, info);
     }
 
     public static void createConnection(String url, String user, String password) throws SQLException {
-        conn = DriverManager.getConnection(url, user, password);
+        conn = getConnection(url, user, password);
     }
 
     public static void createConnection(String url, String user, String password, Properties info) throws SQLException {
-        if (user != null) {
-            info.put("user", user);
-        }
-
-        if (password != null) {
-            info.put("password", password);
-        }
-        conn = DriverManager.getConnection(url, info);
+        conn = getConnection(url, user, password, info);
     }
 
     public static Connection getConnection() {
