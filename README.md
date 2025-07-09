@@ -19,6 +19,8 @@ ________________________________________________________________________________
 
 ## v1.2.3 - 08/07/2025
 - Adicionado controle de autocommit pela lib.
+- Implementados métodos `insertAll` e `saveAll`.
+- Alterado o método padrão de `delete` para `deleteById`.
 
 ## v1.2.2 - 03/07/2025
 - Corrigido bug no insert com campos nulos.
