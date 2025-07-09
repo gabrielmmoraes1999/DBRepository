@@ -29,61 +29,147 @@ public class Repository<T, ID> implements InvocationHandler {
     @SuppressWarnings("unchecked")
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         String nameMethod = method.getName();
+        Object returnObject = null;
 
         if (method.isAnnotationPresent(Query.class)) {
             PreparedStatement preparedStatement = new QuerySQL(method, args).getPreparedStatement(connection);
             Class<?> returnType = method.getReturnType();
 
             if (returnType.isAssignableFrom(entityClass)) {
-                return QueryCustom.getEntity(preparedStatement, entityClass);
+                returnObject = QueryCustom.getEntity(preparedStatement, entityClass);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             } else if (returnType.isAssignableFrom(List.class)) {
                 Class<?> classList = Function.getClassList(method);
 
                 if (classList.isAssignableFrom(entityClass)) {
-                    return QueryCustom.getEntityList(preparedStatement, entityClass);
+                    returnObject = QueryCustom.getEntityList(preparedStatement, entityClass);
                 } else if (classList.isAssignableFrom(Map.class)) {
-                    return QueryCustom.getMapList(preparedStatement);
+                    returnObject = QueryCustom.getMapList(preparedStatement);
                 } else {
-                    return QueryCustom.getObjectList(preparedStatement, classList);
+                    returnObject = QueryCustom.getObjectList(preparedStatement, classList);
                 }
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             } else if (returnType.isAssignableFrom(Map.class)) {
-                return QueryCustom.getMap(preparedStatement);
+                returnObject = QueryCustom.getMap(preparedStatement);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             } else if (returnType.isAssignableFrom(JSONObject.class)) {
-                return QueryCustom.getJsonObject(preparedStatement);
+                returnObject = QueryCustom.getJsonObject(preparedStatement);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             } else if (returnType.isAssignableFrom(JSONArray.class)) {
-                return QueryCustom.getJsonArray(preparedStatement);
+                returnObject = QueryCustom.getJsonArray(preparedStatement);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             } else {
-                return QueryCustom.getObject(preparedStatement, returnType);
+                returnObject = QueryCustom.getObject(preparedStatement, returnType);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             }
         } else if (method.isAnnotationPresent(Update.class)) {
-            return new QuerySQL(method, args).update(connection);
+            returnObject = new QuerySQL(method, args).update(connection);
+
+            if (DataBase.autoCommitMap.get(connection))
+                connection.commit();
+
+            return returnObject;
         } else if (method.isAnnotationPresent(Delete.class)) {
-            return new QuerySQL(method, args).delete(connection);
+            returnObject = new QuerySQL(method, args).delete(connection);
+
+            if (DataBase.autoCommitMap.get(connection))
+                connection.commit();
+
+            return returnObject;
         }
 
         switch (nameMethod) {
             case "insert":
-                return insert((T) args[0]);
+                returnObject = insert((T) args[0]);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
+            case "insertAll":
+                returnObject = insert((T) args[0]);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             case "update":
-                return update((T) args[0]);
+                returnObject =  update((T) args[0]);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             case "save":
-                return save((T) args[0]);
+                returnObject =  save((T) args[0]);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             case "findById":
-                return findById((ID) args[0]);
+                returnObject =  findById((ID) args[0]);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             case "findAll":
-                return findAll();
-            case "delete":
-                return delete((ID) args[0]);
+                returnObject = findAll();
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
+            case "deleteById":
+                returnObject = deleteById((ID) args[0]);
+
+                if (DataBase.autoCommitMap.get(connection))
+                    connection.commit();
+
+                return returnObject;
             default:
                 break;
         }
 
         if (nameMethod.startsWith("findBy")) {
-            return handleFindByMethod(method, args);
+            returnObject = handleFindByMethod(method, args);
+
+            if (DataBase.autoCommitMap.get(connection))
+                connection.commit();
+
+            return returnObject;
         } else if (nameMethod.startsWith("min") || nameMethod.startsWith("max") || nameMethod.startsWith("count")) {
-            return minMaxCount(method, args);
-        } else if (nameMethod.startsWith("next")) {
-            return null;
+            returnObject = minMaxCount(method, args);
+
+            if (DataBase.autoCommitMap.get(connection))
+                connection.commit();
+
+            return returnObject;
         }
 
         throw new UnsupportedOperationException("Método não suportado: " + method.getName());
@@ -356,7 +442,7 @@ public class Repository<T, ID> implements InvocationHandler {
         return result;
     }
 
-    private int delete(ID id) {
+    private int deleteById(ID id) {
         StringBuilder sql = new StringBuilder("DELETE FROM ");
 
         if (!entityClass.isAnnotationPresent(Table.class)) {
@@ -425,6 +511,7 @@ public class Repository<T, ID> implements InvocationHandler {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+
         return result;
     }
 

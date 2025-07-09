@@ -3,11 +3,13 @@ package io.github.gabrielmmoraes1999.db;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Map;
 import java.util.Properties;
 
 public class DataBase {
 
     protected static Connection conn;
+    protected static Map<Connection, Boolean> autoCommitMap;
 
     public static void createConnection(String url) throws SQLException {
         conn = getConnection(url);
@@ -30,15 +32,24 @@ public class DataBase {
     }
 
     public static Connection getConnection(String url) throws SQLException {
-        return DriverManager.getConnection(url);
+        Connection connection = DriverManager.getConnection(url);
+        connection.setAutoCommit(false);
+        autoCommitMap.put(connection, true);
+        return connection;
     }
 
     public static Connection getConnection(String url, Properties info) throws SQLException {
-        return DriverManager.getConnection(url, info);
+        Connection connection = DriverManager.getConnection(url, info);
+        connection.setAutoCommit(false);
+        autoCommitMap.put(connection, true);
+        return connection;
     }
 
     public static Connection getConnection(String url, String user, String password) throws SQLException {
-        return DriverManager.getConnection(url, user, password);
+        Connection connection = DriverManager.getConnection(url, user, password);
+        connection.setAutoCommit(false);
+        autoCommitMap.put(connection, true);
+        return connection;
     }
 
     public static Connection getConnection(String url, String user, String password, Properties info) throws SQLException {
@@ -50,7 +61,10 @@ public class DataBase {
             info.put("password", password);
         }
 
-        return DriverManager.getConnection(url, info);
+        Connection connection = DriverManager.getConnection(url, info);
+        connection.setAutoCommit(false);
+        autoCommitMap.put(connection, true);
+        return connection;
     }
 
     public static void commit() throws SQLException {
@@ -61,12 +75,12 @@ public class DataBase {
         connection.commit();
     }
 
-    public static void setAutoCommit(boolean autoCommit) throws SQLException {
-        conn.setAutoCommit(autoCommit);
+    public static void setAutoCommit(boolean autoCommit) {
+        autoCommitMap.put(conn, autoCommit);
     }
 
-    public static void setAutoCommit(boolean autoCommit, Connection connection) throws SQLException {
-        connection.setAutoCommit(autoCommit);
+    public static void setAutoCommit(boolean autoCommit, Connection connection) {
+        autoCommitMap.put(connection, autoCommit);
     }
 
     public static void disconnect() {
@@ -102,4 +116,5 @@ public class DataBase {
 
         }
     }
+
 }
