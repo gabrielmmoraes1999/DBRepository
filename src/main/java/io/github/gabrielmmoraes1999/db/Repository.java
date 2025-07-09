@@ -111,28 +111,35 @@ public class Repository<T, ID> implements InvocationHandler {
 
                 return returnObject;
             case "insertAll":
-                returnObject = insert((T) args[0]);
+                returnObject = insertAll((List<T>) args[0]);
 
                 if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             case "update":
-                returnObject =  update((T) args[0]);
+                returnObject = update((T) args[0]);
 
                 if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             case "save":
-                returnObject =  save((T) args[0]);
+                returnObject = save((T) args[0]);
+
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                    connection.commit();
+
+                return returnObject;
+            case "saveAll":
+                returnObject = saveAll((List<T>) args[0]);
 
                 if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             case "findById":
-                returnObject =  findById((ID) args[0]);
+                returnObject = findById((ID) args[0]);
 
                 if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
@@ -382,6 +389,21 @@ public class Repository<T, ID> implements InvocationHandler {
         }
     }
 
+    private Integer insertAll(List<T> entityList) {
+        try {
+            int number = 0;
+
+            for (T entity : entityList) {
+                this.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT);
+                number++;
+            }
+
+            return number;
+        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private Integer update(T entity) {
         try {
             return this.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE);
@@ -437,6 +459,16 @@ public class Repository<T, ID> implements InvocationHandler {
             result = entity;
         } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
             throw new RuntimeException(e);
+        }
+
+        return result;
+    }
+
+    private List<T> saveAll(List<T> entityList) {
+        List<T> result = new ArrayList<>();
+
+        for (T entity : entityList) {
+            result.add(save(entity));
         }
 
         return result;
