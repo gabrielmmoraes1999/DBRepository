@@ -3,13 +3,14 @@ package io.github.gabrielmmoraes1999.db;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 
 public class DataBase {
 
     protected static Connection conn;
-    protected static Map<Connection, Boolean> autoCommitMap;
+    protected static Map<Connection, Boolean> autoCommitMap = new HashMap<>();
 
     public static void createConnection(String url) throws SQLException {
         conn = getConnection(url);
@@ -102,6 +103,8 @@ public class DataBase {
 
     public static void disconnect(Connection connection) {
         try {
+            autoCommitMap.remove(connection);
+
             if (connection == null) {
                 return;
             }

@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.2.3</version>
+    <version>1.3.0</version>
 </dependency>
 ```
 
@@ -17,7 +17,7 @@ ________________________________________________________________________________
 
 # Histórico de Versões
 
-## v1.2.3 - 08/07/2025
+## v1.3.0 - 08/07/2025
 - Adicionado controle de autocommit pela lib.
 - Implementados métodos `insertAll` e `saveAll`.
 - Alterado o método padrão de `delete` para `deleteById`.
