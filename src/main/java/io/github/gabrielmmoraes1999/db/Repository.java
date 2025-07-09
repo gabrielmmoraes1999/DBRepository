@@ -29,7 +29,7 @@ public class Repository<T, ID> implements InvocationHandler {
     @SuppressWarnings("unchecked")
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
         String nameMethod = method.getName();
-        Object returnObject = null;
+        Object returnObject;
 
         if (method.isAnnotationPresent(Query.class)) {
             PreparedStatement preparedStatement = new QuerySQL(method, args).getPreparedStatement(connection);
@@ -38,7 +38,7 @@ public class Repository<T, ID> implements InvocationHandler {
             if (returnType.isAssignableFrom(entityClass)) {
                 returnObject = QueryCustom.getEntity(preparedStatement, entityClass);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
@@ -53,35 +53,35 @@ public class Repository<T, ID> implements InvocationHandler {
                     returnObject = QueryCustom.getObjectList(preparedStatement, classList);
                 }
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             } else if (returnType.isAssignableFrom(Map.class)) {
                 returnObject = QueryCustom.getMap(preparedStatement);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             } else if (returnType.isAssignableFrom(JSONObject.class)) {
                 returnObject = QueryCustom.getJsonObject(preparedStatement);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             } else if (returnType.isAssignableFrom(JSONArray.class)) {
                 returnObject = QueryCustom.getJsonArray(preparedStatement);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             } else {
                 returnObject = QueryCustom.getObject(preparedStatement, returnType);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
@@ -89,14 +89,14 @@ public class Repository<T, ID> implements InvocationHandler {
         } else if (method.isAnnotationPresent(Update.class)) {
             returnObject = new QuerySQL(method, args).update(connection);
 
-            if (DataBase.autoCommitMap.get(connection))
+            if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                 connection.commit();
 
             return returnObject;
         } else if (method.isAnnotationPresent(Delete.class)) {
             returnObject = new QuerySQL(method, args).delete(connection);
 
-            if (DataBase.autoCommitMap.get(connection))
+            if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                 connection.commit();
 
             return returnObject;
@@ -106,49 +106,49 @@ public class Repository<T, ID> implements InvocationHandler {
             case "insert":
                 returnObject = insert((T) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             case "insertAll":
                 returnObject = insert((T) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             case "update":
                 returnObject =  update((T) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             case "save":
                 returnObject =  save((T) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             case "findById":
                 returnObject =  findById((ID) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             case "findAll":
                 returnObject = findAll();
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
             case "deleteById":
                 returnObject = deleteById((ID) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection))
+                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                     connection.commit();
 
                 return returnObject;
@@ -159,14 +159,14 @@ public class Repository<T, ID> implements InvocationHandler {
         if (nameMethod.startsWith("findBy")) {
             returnObject = handleFindByMethod(method, args);
 
-            if (DataBase.autoCommitMap.get(connection))
+            if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                 connection.commit();
 
             return returnObject;
         } else if (nameMethod.startsWith("min") || nameMethod.startsWith("max") || nameMethod.startsWith("count")) {
             returnObject = minMaxCount(method, args);
 
-            if (DataBase.autoCommitMap.get(connection))
+            if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
                 connection.commit();
 
             return returnObject;
