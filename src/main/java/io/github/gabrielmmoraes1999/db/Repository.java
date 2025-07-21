@@ -13,7 +13,7 @@ import java.util.*;
 public class Repository<T, ID> implements InvocationHandler {
 
     private final Class<T> entityClass;
-    private final Connection connection;
+    private Connection connection;
     private final boolean closeConnection;
 
     public Repository(Class<T> entityClass, Connection connection, boolean closeConnection) {
@@ -25,6 +25,14 @@ public class Repository<T, ID> implements InvocationHandler {
     @Override
     @SuppressWarnings("unchecked")
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        if (ConnectionPoolManager.isPresent()) {
+            try {
+                connection = ConnectionPoolManager.getDataSource().getConnection();
+            } catch (SQLException ex) {
+                throw new RuntimeException(ex);
+            }
+        }
+
         String nameMethod = method.getName();
         Object returnObject;
 
@@ -35,7 +43,7 @@ public class Repository<T, ID> implements InvocationHandler {
             if (returnType.isAssignableFrom(entityClass)) {
                 returnObject = QueryCustom.getEntity(preparedStatement, entityClass);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -53,7 +61,7 @@ public class Repository<T, ID> implements InvocationHandler {
                     returnObject = QueryCustom.getObjectList(preparedStatement, classList);
                 }
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -63,7 +71,7 @@ public class Repository<T, ID> implements InvocationHandler {
             } else if (returnType.isAssignableFrom(Map.class)) {
                 returnObject = QueryCustom.getMap(preparedStatement);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -73,7 +81,7 @@ public class Repository<T, ID> implements InvocationHandler {
             } else if (returnType.isAssignableFrom(JSONObject.class)) {
                 returnObject = QueryCustom.getJsonObject(preparedStatement);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -83,7 +91,7 @@ public class Repository<T, ID> implements InvocationHandler {
             } else if (returnType.isAssignableFrom(JSONArray.class)) {
                 returnObject = QueryCustom.getJsonArray(preparedStatement);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -93,7 +101,7 @@ public class Repository<T, ID> implements InvocationHandler {
             } else {
                 returnObject = QueryCustom.getObject(preparedStatement, returnType);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -104,7 +112,7 @@ public class Repository<T, ID> implements InvocationHandler {
         } else if (method.isAnnotationPresent(Update.class)) {
             returnObject = new QuerySQL(method, args).update(connection);
 
-            if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+            if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                 connection.commit();
 
             if (closeConnection)
@@ -114,7 +122,7 @@ public class Repository<T, ID> implements InvocationHandler {
         } else if (method.isAnnotationPresent(Delete.class)) {
             returnObject = new QuerySQL(method, args).delete(connection);
 
-            if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+            if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                 connection.commit();
 
             if (closeConnection)
@@ -127,7 +135,7 @@ public class Repository<T, ID> implements InvocationHandler {
             case "insert":
                 returnObject = insert((T) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -137,7 +145,7 @@ public class Repository<T, ID> implements InvocationHandler {
             case "insertAll":
                 returnObject = insertAll((List<T>) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -147,7 +155,7 @@ public class Repository<T, ID> implements InvocationHandler {
             case "update":
                 returnObject = update((T) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -157,7 +165,7 @@ public class Repository<T, ID> implements InvocationHandler {
             case "save":
                 returnObject = save((T) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -167,7 +175,7 @@ public class Repository<T, ID> implements InvocationHandler {
             case "saveAll":
                 returnObject = saveAll((List<T>) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -177,7 +185,7 @@ public class Repository<T, ID> implements InvocationHandler {
             case "findById":
                 returnObject = findById((ID) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -187,7 +195,7 @@ public class Repository<T, ID> implements InvocationHandler {
             case "findAll":
                 returnObject = findAll();
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -197,7 +205,7 @@ public class Repository<T, ID> implements InvocationHandler {
             case "deleteById":
                 returnObject = deleteById((ID) args[0]);
 
-                if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+                if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                     connection.commit();
 
                 if (closeConnection)
@@ -211,7 +219,7 @@ public class Repository<T, ID> implements InvocationHandler {
         if (nameMethod.startsWith("findBy")) {
             returnObject = handleFindByMethod(method, args);
 
-            if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+            if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                 connection.commit();
 
             if (closeConnection)
@@ -221,7 +229,7 @@ public class Repository<T, ID> implements InvocationHandler {
         } else if (nameMethod.startsWith("min") || nameMethod.startsWith("max") || nameMethod.startsWith("count")) {
             returnObject = minMaxCount(method, args);
 
-            if (DataBase.autoCommitMap.get(connection) && !connection.getAutoCommit())
+            if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit())
                 connection.commit();
 
             if (closeConnection)
@@ -657,21 +665,7 @@ public class Repository<T, ID> implements InvocationHandler {
     public static <T, ID> T createRepository(Class<?> repositoryInterface) {
         ParameterizedType parameterizedType = (ParameterizedType) repositoryInterface.getGenericInterfaces()[0];
         Class<T> entityClass = (Class<T>) parameterizedType.getActualTypeArguments()[0];
-        Connection connection = DataBase.conn;
-
-        if (ConnectionPoolManager.isPresent()) {
-            try {
-                connection = ConnectionPoolManager.getDataSource().getConnection();
-            } catch (SQLException ex) {
-                throw new RuntimeException(ex);
-            }
-        }
-
-        Repository<T, ID> handler = new Repository<>(
-                entityClass,
-                connection,
-                ConnectionPoolManager.isPresent()
-        );
+        Repository<T, ID> handler = new Repository<>(entityClass, DataBase.conn, ConnectionPoolManager.isPresent());
 
         return (T) Proxy.newProxyInstance(
                 repositoryInterface.getClassLoader(),

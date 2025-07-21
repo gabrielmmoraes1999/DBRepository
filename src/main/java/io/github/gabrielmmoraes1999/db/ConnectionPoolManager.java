@@ -5,32 +5,25 @@ import javax.sql.DataSource;
 
 public class ConnectionPoolManager {
 
-    private static HikariDataSource hikariDataSource;
+    private static HikariDataSource dataSource;
 
     public static void setHikariDataSource(HikariDataSource hikariDataSource) {
-        ConnectionPoolManager.hikariDataSource = hikariDataSource;
+        ConnectionPoolManager.dataSource = hikariDataSource;
 
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("Encerrando pool de conexões...");
-            ConnectionPoolManager.close();
-        }));
-    }
-
-    public static HikariDataSource getHikariDataSource() {
-        return hikariDataSource;
+        Runtime.getRuntime().addShutdownHook(new Thread(ConnectionPoolManager::close));
     }
 
     public static boolean isPresent() {
-        return hikariDataSource != null;
+        return dataSource != null;
     }
 
     public static DataSource getDataSource() {
-        return hikariDataSource.getDataSource();
+        return dataSource;
     }
 
     public static void close() {
-        if (hikariDataSource != null)
-            hikariDataSource.close();
+        if (dataSource != null)
+            dataSource.close();
     }
 
 }
