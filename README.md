@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.3.0</version>
+    <version>1.4.0</version>
 </dependency>
 ```
 
@@ -16,6 +16,9 @@ Veja a Wiki https://github.com/gabrielmmoraes1999/DBRepository/wiki, para ter um
 ________________________________________________________________________________________________
 
 # Histórico de Versões
+
+## v1.4.0 - 20/07/2025
+- Adicionado suporte a ConnectionPoolManager com `HikariCP`.
 
 ## v1.3.0 - 08/07/2025
 - Adicionado controle de autocommit pela lib.
