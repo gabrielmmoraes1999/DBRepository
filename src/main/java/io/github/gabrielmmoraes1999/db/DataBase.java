@@ -73,7 +73,17 @@ public class DataBase {
     }
 
     public static void commit(Connection connection) throws SQLException {
-        connection.commit();
+        if (DataBase.autoCommitMap.getOrDefault(connection, true) && !connection.getAutoCommit()) {
+            connection.commit();
+        }
+    }
+
+    public static void rollback() throws SQLException {
+        conn.rollback();
+    }
+
+    public static void rollback(Connection connection) throws SQLException {
+        connection.rollback();
     }
 
     public static void setAutoCommit(boolean autoCommit) {
