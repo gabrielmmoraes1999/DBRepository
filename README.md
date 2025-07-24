@@ -18,7 +18,7 @@ ________________________________________________________________________________
 # Histórico de Versões
 
 ## v1.4.2 - 24/07/2025
-- Melhoria logica de commit.
+- Melhoria logica de commit `insertAll` e `saveAll`.
 
 ## v1.4.1 - 23/07/2025
 - Melhoria logica de commit.
