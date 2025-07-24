@@ -140,7 +140,15 @@ public class Repository<T, ID> implements InvocationHandler {
 
                     return returnObject;
                 case "insertAll":
+                    if (connection.getAutoCommit()) {
+                        rollbackAutoCommit = true;
+                        connection.setAutoCommit(false);
+                    }
+
                     returnObject = insertAll((List<T>) args[0]);
+
+                    if (rollbackAutoCommit)
+                        connection.setAutoCommit(true);
 
                     DataBase.commit(connection);
 
