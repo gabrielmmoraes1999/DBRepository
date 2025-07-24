@@ -39,7 +39,7 @@ public class FindBy {
         }
 
         if (Objects.isNull(findBy)) {
-            throw new IllegalArgumentException("Não foi possível obter o findBy.");
+            throw new IllegalArgumentException("Unable to get findBy.");
         }
 
         String lastCondition = "AND";
