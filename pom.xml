@@ -6,7 +6,7 @@
 
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.5.0</version>
+    <version>1.4.2</version>
 
     <name>DBRepository</name>
     <description>Gerenciador de banco de dados.</description>
@@ -48,18 +48,6 @@
             <groupId>com.zaxxer</groupId>
             <artifactId>HikariCP</artifactId>
             <version>3.4.5</version>
-        </dependency>
-        <dependency>
-            <groupId>org.projectlombok</groupId>
-            <artifactId>lombok</artifactId>
-            <version>1.18.38</version>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.firebirdsql.jdbc</groupId>
-            <artifactId>jaybird</artifactId>
-            <version>5.0.8.java8</version>
-            <scope>test</scope>
         </dependency>
     </dependencies>
 
