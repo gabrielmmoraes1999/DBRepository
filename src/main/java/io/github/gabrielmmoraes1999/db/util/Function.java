@@ -188,7 +188,7 @@ public class Function {
                         field.setAccessible(true);
 
                         if (field.isAnnotationPresent(OneToMany.class)) {
-                            Set<Object> collection = new HashSet<>();
+                            Set<Object> collection = new LinkedHashSet<>();
 
                             while (childRs.next()) {
                                 collection.add(getEntity(childClass, childRs, connection));

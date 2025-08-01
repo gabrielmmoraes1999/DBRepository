@@ -17,6 +17,11 @@ ________________________________________________________________________________
 
 # Histórico de Versões
 
+## v1.5.0 - 31/07/2025
+- Adicionado comportamento para anotações `OneToMany` e `OneToOne`.
+- Adicionado o autoload chaves estrangeiras nas tabelas ao usar essas anotações.
+- Adicionado as anotações `JoinColumn` e `JoinColumns` caso queira informar manualmente as chaves estrangeiras.
+
 ## v1.4.2 - 24/07/2025
 - Melhoria logica de commit `insertAll` e `saveAll`.
 
