@@ -3,10 +3,7 @@ package io.github.gabrielmmoraes1999.db.util;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -14,14 +11,14 @@ import java.util.Map;
 
 public class QueryCustom {
 
-    public static <T> T getEntity(PreparedStatement preparedStatement, Class<T> entityClass) {
+    public static <T> T getEntity(PreparedStatement preparedStatement, Class<T> entityClass, Connection connection) {
         T entity = null;
 
         try {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
-                    entity = Function.getEntity(entityClass, resultSet);
+                    entity = Function.getEntity(entityClass, resultSet, connection);
                 }
             }
 
@@ -76,13 +73,13 @@ public class QueryCustom {
         return result;
     }
 
-    public static <T> List<T> getEntityList(PreparedStatement preparedStatement, Class<T> entityClass) {
+    public static <T> List<T> getEntityList(PreparedStatement preparedStatement, Class<T> entityClass, Connection connection) {
         List<T> resultList = new ArrayList<>();
 
         try {
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
-                    resultList.add(Function.getEntity(entityClass, resultSet));
+                    resultList.add(Function.getEntity(entityClass, resultSet, connection));
                 }
             }
 

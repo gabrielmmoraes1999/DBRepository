@@ -1,16 +1,16 @@
 package io.github.gabrielmmoraes1999.db.util;
 
-import io.github.gabrielmmoraes1999.db.annotation.Column;
-import io.github.gabrielmmoraes1999.db.annotation.PrimaryKey;
+import io.github.gabrielmmoraes1999.db.TypeSQL;
+import io.github.gabrielmmoraes1999.db.annotation.*;
 
 import java.lang.reflect.*;
 import java.math.BigDecimal;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
+import java.sql.Date;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 public class Function {
 
@@ -67,7 +67,7 @@ public class Function {
         }
 
         if (primaryKeyFields.isEmpty()) {
-            throw new IllegalArgumentException("A classe não possui a anotação @PrimaryKey.");
+            throw new IllegalArgumentException("The class does not have the annotation @PrimaryKey.");
         }
 
         return primaryKeyFields;
@@ -83,7 +83,7 @@ public class Function {
         }
 
         if (primaryKeyFields.isEmpty()) {
-            throw new IllegalArgumentException("A classe não possui a anotação @PrimaryKey.");
+            throw new IllegalArgumentException("The class does not have the annotation @PrimaryKey.");
         }
 
         return primaryKeyFields;
@@ -119,25 +119,95 @@ public class Function {
         return primitiveType; // No caso de outros tipos
     }
 
-    public static <T> T getEntity(Class<T> entityClass, ResultSet resultSet)
+    public static <T> T getEntity(Class<T> entityClass, ResultSet resultSet, Connection connection)
             throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, SQLException {
         T entity = entityClass.getDeclaredConstructor().newInstance();
+        Table entityAnnotation = entityClass.getAnnotation(Table.class);
 
+        // Primeiro popula os campos @Column
         for (Field field : entityClass.getDeclaredFields()) {
             if (field.isAnnotationPresent(Column.class)) {
                 Column column = field.getAnnotation(Column.class);
                 field.setAccessible(true);
 
-                assert column != null;
                 if (field.getType().isEnum()) {
+                    assert column != null;
                     field.set(entity, field.getType().getEnumConstants()[resultSet.getInt(column.name())]);
                 } else {
+                    assert column != null;
                     field.set(entity, resultSet.getObject(column.name()));
+                }
+            } else if (field.isAnnotationPresent(OneToMany.class) || field.isAnnotationPresent(OneToOne.class)) {
+                // Depois trata os campos @OneToMany
+                OrderBy orderBy = field.getAnnotation(OrderBy.class);
+                String orderSql = orderBy != null ? " ORDER BY " + orderBy.value() : "";
+
+                Class<?> childClass = null;
+
+                if (field.isAnnotationPresent(OneToMany.class)) {
+                    childClass = getGenericType(field);
+                } else if (field.isAnnotationPresent(OneToOne.class)) {
+                    childClass = field.getType();
+                }
+
+                if (childClass == null)
+                    throw new IllegalArgumentException("The class does not have the type column.");
+
+                if (!childClass.isAnnotationPresent(Table.class))
+                    throw new IllegalArgumentException("The class does not have the annotation @Table.");
+
+                String joinTable = childClass.getAnnotation(Table.class).name();
+                Map<String, String> fkMap = Function.resolveJoinColumnsOrFKMeta(connection, entityAnnotation.name(), joinTable, field);
+
+                if (fkMap.isEmpty())
+                    throw new IllegalArgumentException("A classe não possui a anotação @PrimaryKey.");
+
+                String whereClause = fkMap.values().stream()
+                        .map(s -> s + " = ?")
+                        .collect(Collectors.joining(" AND "));
+
+                try (PreparedStatement stmt = connection.prepareStatement(String.format("SELECT * FROM %s WHERE %s %s", joinTable, whereClause, orderSql))) {
+                    int index = 1;
+
+                    for (String columnStr : fkMap.keySet()) {
+                        for (Field field1 : entityClass.getDeclaredFields()) {
+                            if (field1.isAnnotationPresent(Column.class)) {
+                                Column column = Objects.requireNonNull(field1.getAnnotation(Column.class));
+
+                                if (Objects.equals(column.name().toUpperCase(), columnStr)) {
+                                    field1.setAccessible(true);
+                                    Object value = field1.get(entity);
+                                    Function.setPreparedStatement(stmt, index, value);
+                                    index++;
+                                }
+                            }
+                        }
+                    }
+
+                    try (ResultSet childRs = stmt.executeQuery()) {
+                        field.setAccessible(true);
+
+                        if (field.isAnnotationPresent(OneToMany.class)) {
+                            Set<Object> collection = new HashSet<>();
+
+                            while (childRs.next()) {
+                                collection.add(getEntity(childClass, childRs, connection));
+                            }
+
+                            field.set(entity, collection);
+                        } else if (field.isAnnotationPresent(OneToOne.class)) {
+                            childRs.next();
+                            field.set(entity, getEntity(childClass, childRs, connection));
+                        }
+                    }
+
                 }
             }
         }
+
         return entity;
     }
+
 
     public static void setPreparedStatement(PreparedStatement preparedStatement, int position, Object value) throws SQLException {
         if (Objects.isNull(value)) {
@@ -187,6 +257,155 @@ public class Function {
         }
 
         return columns;
+    }
+
+    public static Class<?> getGenericType(Field field) {
+        ParameterizedType type = (ParameterizedType) field.getGenericType();
+        return (Class<?>) type.getActualTypeArguments()[0];
+    }
+
+    public static int executeSQL(String sql, List<Object> values, Connection connection) {
+        int result;
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            int index = 1;
+
+            for (Object value : values) {
+                Function.setPreparedStatement(preparedStatement, index, value);
+                index++;
+            }
+
+            result = preparedStatement.executeUpdate();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return result;
+    }
+
+    public static int execute(Object entity, String sql, TypeSQL typeSQL, Connection connection) throws Exception {
+        Class<?> clazz = entity.getClass();
+        Field[] fields = clazz.getDeclaredFields();
+
+        int result;
+        int index = 1;
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            List<Field> primaryKeyList = new ArrayList<>();
+            List<String> columnList = Function.extractColumns(sql);
+
+            switch (typeSQL) {
+                case INSERT:
+                    for (Field field : fields) {
+                        if (field.isAnnotationPresent(Column.class)) {
+                            field.setAccessible(true);
+                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
+
+                            if (columnList.contains(column.name())) {
+                                Function.setPreparedStatement(preparedStatement, index, field.get(entity));
+                                index++;
+                            }
+                        }
+                    }
+                    break;
+                case UPDATE:
+                    for (Field field : fields) {
+                        if (field.isAnnotationPresent(PrimaryKey.class)) {
+                            primaryKeyList.add(field);
+                        }
+                    }
+
+                    for (Field field : fields) {
+                        if (field.isAnnotationPresent(Column.class) && !primaryKeyList.contains(field)) {
+                            field.setAccessible(true);
+                            Function.setPreparedStatement(preparedStatement, index, field.get(entity));
+                            index++;
+                        }
+                    }
+
+                    for (Field field : primaryKeyList) {
+                        field.setAccessible(true);
+                        Function.setPreparedStatement(preparedStatement, index, field.get(entity));
+                        index++;
+                    }
+                    break;
+            }
+
+            result = preparedStatement.executeUpdate();
+        }
+
+        return result;
+    }
+
+    static Map<String, String> resolveJoinColumnsOrFKMeta(Connection connection, String parentTable, String childTable, Field field) {
+        Map<String, String> map = new LinkedHashMap<>();
+
+        if (field.isAnnotationPresent(JoinColumns.class)) {
+            JoinColumns joins = field.getAnnotation(JoinColumns.class);
+            assert joins != null;
+            for (JoinColumn jc : joins.value()) {
+                map.put(jc.referencedColumnName().toUpperCase(), jc.name().toUpperCase());
+            }
+            return map;
+        }
+
+        if (field.isAnnotationPresent(JoinColumn.class)) {
+            JoinColumn jc = field.getAnnotation(JoinColumn.class);
+            assert jc != null;
+            map.put(jc.referencedColumnName().toUpperCase(), jc.name().toUpperCase());
+            return map;
+        }
+
+        map = getPrimaryKeys(connection, parentTable, childTable);
+
+        if (map.isEmpty())
+            map = getForeignKeys(connection, parentTable, childTable);
+
+        return map;
+    }
+
+    private static Map<String, String> getPrimaryKeys(Connection conn, String parentTable, String childTable) {
+        Map<String, String> foreignKeyMap = new LinkedHashMap<>();
+
+        try (ResultSet rs = conn.getMetaData().getImportedKeys(null, null, childTable)) {
+            while (rs.next()) {
+                String pkTable = rs.getString("PKTABLE_NAME");
+                String fkTable = rs.getString("FKTABLE_NAME");
+
+                if (pkTable.equalsIgnoreCase(parentTable) && fkTable.equalsIgnoreCase(childTable)) {
+                    String pkColumn = rs.getString("PKCOLUMN_NAME");
+                    String fkColumn = rs.getString("FKCOLUMN_NAME");
+
+                    foreignKeyMap.put(pkColumn.toUpperCase(), fkColumn.toUpperCase());
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error reading foreign keys", e);
+        }
+
+        return foreignKeyMap;
+    }
+
+    private static Map<String, String> getForeignKeys(Connection conn, String parentTable, String childTable) {
+        Map<String, String> foreignKeyMap = new LinkedHashMap<>();
+
+        try (ResultSet rs = conn.getMetaData().getImportedKeys(null, null, parentTable)) {
+            while (rs.next()) {
+                String pkTable = rs.getString("PKTABLE_NAME");
+                String fkTable = rs.getString("FKTABLE_NAME");
+
+                if (fkTable.equalsIgnoreCase(parentTable) && pkTable.equalsIgnoreCase(childTable)) {
+                    String pkColumn = rs.getString("PKCOLUMN_NAME");
+                    String fkColumn = rs.getString("FKCOLUMN_NAME");
+
+                    foreignKeyMap.put(pkColumn.toUpperCase(), fkColumn.toUpperCase());
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Error reading foreign keys", e);
+        }
+
+        return foreignKeyMap;
     }
 
 }

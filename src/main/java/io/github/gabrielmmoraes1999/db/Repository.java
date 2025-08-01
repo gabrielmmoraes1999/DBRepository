@@ -47,7 +47,7 @@ public class Repository<T, ID> implements InvocationHandler {
                 Class<?> returnType = method.getReturnType();
 
                 if (returnType.isAssignableFrom(entityClass)) {
-                    returnObject = QueryCustom.getEntity(preparedStatement, entityClass);
+                    returnObject = QueryCustom.getEntity(preparedStatement, entityClass, connection);
 
                     DataBase.commit(connection);
 
@@ -59,7 +59,7 @@ public class Repository<T, ID> implements InvocationHandler {
                     Class<?> classList = Function.getClassList(method);
 
                     if (classList.isAssignableFrom(entityClass)) {
-                        returnObject = QueryCustom.getEntityList(preparedStatement, entityClass);
+                        returnObject = QueryCustom.getEntityList(preparedStatement, entityClass, connection);
                     } else if (classList.isAssignableFrom(Map.class)) {
                         returnObject = QueryCustom.getMapList(preparedStatement);
                     } else {
@@ -292,9 +292,9 @@ public class Repository<T, ID> implements InvocationHandler {
 
                 while (resultSet.next()) {
                     if (returnClass.isAssignableFrom(List.class)) {
-                        resultList.add(Function.getEntity(entityClass, resultSet));
+                        resultList.add(Function.getEntity(entityClass, resultSet, connection));
                     } else if (returnClass.isAssignableFrom(entityClass)) {
-                        resultClass = Function.getEntity(entityClass, resultSet);
+                        resultClass = Function.getEntity(entityClass, resultSet, connection);
                         break;
                     } else if (returnClass.isAssignableFrom(JSONObject.class)) {
                         for (int i = 1; i <= columnCount; i++) {
@@ -376,11 +376,11 @@ public class Repository<T, ID> implements InvocationHandler {
 
         List<T> entityList = new ArrayList<>();
         Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
-        String sql = "SELECT * FROM " + table.name();
 
-        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
+        try (Statement statement = connection.createStatement();
+             ResultSet resultSet = statement.executeQuery("SELECT * FROM " + table.name())) {
             while (resultSet.next()) {
-                entityList.add(Function.getEntity(entityClass, resultSet));
+                entityList.add(Function.getEntity(entityClass, resultSet, connection));
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -390,14 +390,13 @@ public class Repository<T, ID> implements InvocationHandler {
     }
 
     public T findById(ID id) {
-        StringBuilder sql = new StringBuilder("SELECT * FROM ");
-
         if (!entityClass.isAnnotationPresent(Table.class)) {
             throw new IllegalArgumentException("The class does not have the annotation @Table.");
         }
 
         List<Field> primaryKeyFields  = Function.getPrimaryKeyField(entityClass);
         Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
+        StringBuilder sql = new StringBuilder("SELECT * FROM ");
         sql.append(table.name()).append(" WHERE ");
 
         for (int i = 0; i < primaryKeyFields.size(); i++) {
@@ -436,20 +435,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
-                    result = entityClass.getDeclaredConstructor().newInstance();
-
-                    for (Field field : entityClass.getDeclaredFields()) {
-                        if (field.isAnnotationPresent(Column.class)) {
-                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
-                            field.setAccessible(true);
-
-                            if (field.getType().isEnum()) {
-                                field.set(result, field.getType().getEnumConstants()[resultSet.getInt(column.name())]);
-                            } else {
-                                field.set(result, resultSet.getObject(column.name()));
-                            }
-                        }
-                    }
+                    result = Function.getEntity(entityClass, resultSet, connection);
                 }
             }
         } catch (Exception e) {
@@ -461,31 +447,36 @@ public class Repository<T, ID> implements InvocationHandler {
 
     private Integer insert(T entity) {
         try {
-            return this.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT);
-        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
+            int register = Function.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT, connection);
+            SubClass.execute(entity, TypeSQL.INSERT, connection);
+            return register;
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     private Integer insertAll(List<T> entityList) {
         try {
-            int number = 0;
+            int register = 0;
 
             for (T entity : entityList) {
-                this.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT);
-                number++;
+                Function.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT, connection);
+                SubClass.execute(entity, TypeSQL.INSERT, connection);
+                register++;
             }
 
-            return number;
-        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
+            return register;
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     private Integer update(T entity) {
         try {
-            return this.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE);
-        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
+            int register = Function.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE, connection);
+            SubClass.execute(entity, TypeSQL.UPDATE, connection);
+            return register;
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -498,6 +489,7 @@ public class Repository<T, ID> implements InvocationHandler {
                 throw new IllegalArgumentException("The class does not have the annotation @Table.");
             }
 
+            List<Object> valuesPk = new ArrayList<>();
             List<Field> primaryKeyFields = Function.getPrimaryKeyField(entity);
             StringBuilder sql = new StringBuilder("SELECT COUNT(1) FROM ");
             Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
@@ -518,6 +510,7 @@ public class Repository<T, ID> implements InvocationHandler {
                 for (int index = 0; index < primaryKeyFields.size(); index++) {
                     Field primaryKeyField = primaryKeyFields.get(index);
                     primaryKeyField.setAccessible(true);
+                    valuesPk.add(primaryKeyField.get(entity));
                     Function.setPreparedStatement(preparedStatement, index + 1, primaryKeyField.get(entity));
                 }
 
@@ -529,13 +522,23 @@ public class Repository<T, ID> implements InvocationHandler {
             }
 
             if (count > 0) {
-                this.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE);
+                Function.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE, connection);
             } else {
-                this.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT);
+                Function.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT, connection);
             }
 
-            result = entity;
-        } catch (IllegalAccessException | SQLException | InvocationTargetException | NoSuchMethodException e) {
+            SubClass.execute(entity, TypeSQL.UPDATE, connection);
+
+            if (count > 0) {
+                result = entity;
+            } else {
+                if (valuesPk.size() > 1) {
+                    result = findById((ID) valuesPk);
+                } else {
+                    result = findById((ID) valuesPk.get(0));
+                }
+            }
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
 
@@ -620,61 +623,6 @@ public class Repository<T, ID> implements InvocationHandler {
             result = preparedStatement.executeUpdate();
         } catch (Exception e) {
             throw new RuntimeException(e);
-        }
-
-        return result;
-    }
-
-    private int execute(T entity, String sql, TypeSQL typeSQL)
-            throws SQLException, IllegalAccessException, NoSuchMethodException, InvocationTargetException {
-        Class<?> clazz = entity.getClass();
-        Field[] fields = clazz.getDeclaredFields();
-
-        int result;
-        int index = 1;
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            List<Field> primaryKeyList = new ArrayList<>();
-            List<String> columnList = Function.extractColumns(sql);
-
-            switch (typeSQL) {
-                case INSERT:
-                    for (Field field : fields) {
-                        if (field.isAnnotationPresent(Column.class)) {
-                            field.setAccessible(true);
-                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
-
-                            if (columnList.contains(column.name())) {
-                                Function.setPreparedStatement(preparedStatement, index, field.get(entity));
-                                index++;
-                            }
-                        }
-                    }
-                    break;
-                case UPDATE:
-                    for (Field field : fields) {
-                        if (field.isAnnotationPresent(PrimaryKey.class)) {
-                            primaryKeyList.add(field);
-                        }
-                    }
-
-                    for (Field field : fields) {
-                        if (field.isAnnotationPresent(Column.class) && !primaryKeyList.contains(field)) {
-                            field.setAccessible(true);
-                            Function.setPreparedStatement(preparedStatement, index, field.get(entity));
-                            index++;
-                        }
-                    }
-
-                    for (Field field : primaryKeyList) {
-                        field.setAccessible(true);
-                        Function.setPreparedStatement(preparedStatement, index, field.get(entity));
-                        index++;
-                    }
-                    break;
-            }
-
-            result = preparedStatement.executeUpdate();
         }
 
         return result;
