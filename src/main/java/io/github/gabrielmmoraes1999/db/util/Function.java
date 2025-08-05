@@ -119,7 +119,7 @@ public class Function {
         return primitiveType; // No caso de outros tipos
     }
 
-    public static <T> T getEntity(Class<T> entityClass, ResultSet resultSet, Connection connection)
+    public static <T> T getEntity(Class<T> entityClass, Map<String, Object> rowData, Connection connection)
             throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, SQLException {
         T entity = entityClass.getDeclaredConstructor().newInstance();
         Table entityAnnotation = entityClass.getAnnotation(Table.class);
@@ -132,10 +132,10 @@ public class Function {
 
                 if (field.getType().isEnum()) {
                     assert column != null;
-                    field.set(entity, field.getType().getEnumConstants()[resultSet.getInt(column.name())]);
+                    field.set(entity, field.getType().getEnumConstants()[(Integer) rowData.get(column.name())]);
                 } else {
                     assert column != null;
-                    field.set(entity, resultSet.getObject(column.name()));
+                    field.set(entity, rowData.get(column.name()));
                 }
             } else if (field.isAnnotationPresent(OneToMany.class) || field.isAnnotationPresent(OneToOne.class)) {
                 // Depois trata os campos @OneToMany
@@ -184,20 +184,20 @@ public class Function {
                         }
                     }
 
-                    try (ResultSet childRs = stmt.executeQuery()) {
-                        field.setAccessible(true);
+                    List<Map<String, Object>> childList = Function.convertResultSetToMap(stmt.executeQuery());
 
-                        if (field.isAnnotationPresent(OneToMany.class)) {
-                            Set<Object> collection = new LinkedHashSet<>();
+                    field.setAccessible(true);
+                    if (field.isAnnotationPresent(OneToMany.class)) {
+                        Set<Object> collection = new LinkedHashSet<>();
 
-                            while (childRs.next()) {
-                                collection.add(getEntity(childClass, childRs, connection));
-                            }
+                        for (Map<String, Object> childRow : childList) {
+                            collection.add(getEntity(childClass, childRow, connection));
+                        }
 
-                            field.set(entity, collection);
-                        } else if (field.isAnnotationPresent(OneToOne.class)) {
-                            childRs.next();
-                            field.set(entity, getEntity(childClass, childRs, connection));
+                        field.set(entity, collection);
+                    } else if (field.isAnnotationPresent(OneToOne.class)) {
+                        if (!childList.isEmpty()) {
+                            field.set(entity, getEntity(childClass, childList.get(0), connection));
                         }
                     }
 
@@ -406,6 +406,26 @@ public class Function {
         }
 
         return foreignKeyMap;
+    }
+
+    public static List<Map<String, Object>> convertResultSetToMap(ResultSet resultSet) throws SQLException {
+        List<Map<String, Object>> rows = new ArrayList<>();
+
+        ResultSetMetaData metaData = resultSet.getMetaData();
+        int columnCount = metaData.getColumnCount();
+
+        while (resultSet.next()) {
+            Map<String, Object> columns = new LinkedHashMap<>();
+
+            for (int i = 1; i <= columnCount; i++) {
+                columns.put(metaData.getColumnLabel(i), resultSet.getObject(i));
+            }
+
+            rows.add(columns);
+        }
+
+        resultSet.close();
+        return rows;
     }
 
 }

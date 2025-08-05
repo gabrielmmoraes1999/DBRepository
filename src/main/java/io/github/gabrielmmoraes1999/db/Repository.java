@@ -286,34 +286,25 @@ public class Repository<T, ID> implements InvocationHandler {
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             Function.setParams(preparedStatement, findBy.getParams());
 
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                ResultSetMetaData metaData = resultSet.getMetaData();
-                int columnCount = metaData.getColumnCount();
-
-                while (resultSet.next()) {
-                    if (returnClass.isAssignableFrom(List.class)) {
-                        resultList.add(Function.getEntity(entityClass, resultSet, connection));
-                    } else if (returnClass.isAssignableFrom(entityClass)) {
-                        resultClass = Function.getEntity(entityClass, resultSet, connection);
-                        break;
-                    } else if (returnClass.isAssignableFrom(JSONObject.class)) {
-                        for (int i = 1; i <= columnCount; i++) {
-                            String columnName = metaData.getColumnLabel(i);
-                            Object value = resultSet.getObject(i);
-                            jsonObject.put(columnName, value);
-                        }
-                        break;
-                    } else if (returnClass.isAssignableFrom(JSONArray.class)) {
-                        JSONObject jsonObjectRow = new JSONObject();
-
-                        for (int i = 1; i <= columnCount; i++) {
-                            String columnName = metaData.getColumnLabel(i);
-                            Object value = resultSet.getObject(i);
-                            jsonObjectRow.put(columnName, value);
-                        }
-
-                        jsonArray.put(jsonObjectRow);
+            for (Map<String, Object> row : Function.convertResultSetToMap(preparedStatement.executeQuery())) {
+                if (returnClass.isAssignableFrom(List.class)) {
+                    resultList.add(Function.getEntity(entityClass, row, connection));
+                } else if (returnClass.isAssignableFrom(entityClass)) {
+                    resultClass = Function.getEntity(entityClass, row, connection);
+                    break;
+                } else if (returnClass.isAssignableFrom(JSONObject.class)) {
+                    for (String columnName : row.keySet()) {
+                        jsonObject.put(columnName, row.get(columnName));
                     }
+                    break;
+                } else if (returnClass.isAssignableFrom(JSONArray.class)) {
+                    JSONObject jsonObjectRow = new JSONObject();
+
+                    for (String columnName : row.keySet()) {
+                        jsonObjectRow.put(columnName, row.get(columnName));
+                    }
+
+                    jsonArray.put(jsonObjectRow);
                 }
             }
         } catch (Exception e) {
@@ -376,11 +367,11 @@ public class Repository<T, ID> implements InvocationHandler {
 
         List<T> entityList = new ArrayList<>();
         Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
+        String sql = "SELECT * FROM " + table.name();
 
-        try (Statement statement = connection.createStatement();
-             ResultSet resultSet = statement.executeQuery("SELECT * FROM " + table.name())) {
-            while (resultSet.next()) {
-                entityList.add(Function.getEntity(entityClass, resultSet, connection));
+        try (Statement statement = connection.createStatement()) {
+            for (Map<String, Object> row : Function.convertResultSetToMap(statement.executeQuery(sql))) {
+                entityList.add(Function.getEntity(entityClass, row, connection));
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -433,10 +424,10 @@ public class Repository<T, ID> implements InvocationHandler {
                 Function.setPreparedStatement(preparedStatement, 1, id);
             }
 
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    result = Function.getEntity(entityClass, resultSet, connection);
-                }
+            List<Map<String, Object>> childList = Function.convertResultSetToMap(preparedStatement.executeQuery());
+
+            if (!childList.isEmpty()) {
+                result = Function.getEntity(entityClass, childList.get(0), connection);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);

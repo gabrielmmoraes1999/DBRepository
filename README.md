@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.4.2</version>
+    <version>1.5.1</version>
 </dependency>
 ```
 
@@ -16,6 +16,9 @@ Veja a Wiki https://github.com/gabrielmmoraes1999/DBRepository/wiki, para ter um
 ________________________________________________________________________________________________
 
 # Histórico de Versões
+
+## v1.5.1 - 05/08/2025
+- Corrigido bug result close.
 
 ## v1.5.0 - 31/07/2025
 - Adicionado comportamento para anotações `OneToMany` e `OneToOne`.

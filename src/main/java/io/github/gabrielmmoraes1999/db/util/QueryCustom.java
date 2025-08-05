@@ -15,11 +15,10 @@ public class QueryCustom {
         T entity = null;
 
         try {
+            List<Map<String, Object>> childList = Function.convertResultSetToMap(preparedStatement.executeQuery());
 
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    entity = Function.getEntity(entityClass, resultSet, connection);
-                }
+            if (!childList.isEmpty()) {
+                entity = Function.getEntity(entityClass, childList.get(0), connection);
             }
 
             preparedStatement.close();
@@ -77,10 +76,8 @@ public class QueryCustom {
         List<T> resultList = new ArrayList<>();
 
         try {
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    resultList.add(Function.getEntity(entityClass, resultSet, connection));
-                }
+            for (Map<String, Object> row : Function.convertResultSetToMap(preparedStatement.executeQuery())) {
+                resultList.add(Function.getEntity(entityClass, row, connection));
             }
 
             preparedStatement.close();
