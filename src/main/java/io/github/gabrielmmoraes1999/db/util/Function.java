@@ -162,7 +162,7 @@ public class Function {
                 if (fkMap.isEmpty())
                     throw new IllegalArgumentException("A classe não possui a anotação @PrimaryKey.");
 
-                String whereClause = fkMap.values().stream()
+                String whereClause = fkMap.keySet().stream()
                         .map(s -> s + " = ?")
                         .collect(Collectors.joining(" AND "));
 
@@ -175,9 +175,10 @@ public class Function {
                                 Column column = Objects.requireNonNull(field1.getAnnotation(Column.class));
 
                                 if (Objects.equals(column.name().toUpperCase(), columnStr)) {
-                                    field1.setAccessible(true);
-                                    Object value = field1.get(entity);
-                                    Function.setPreparedStatement(stmt, index, value);
+                                    Function.setPreparedStatement(
+                                            stmt, index, rowData.get(fkMap.get(columnStr))
+                                    );
+
                                     index++;
                                 }
                             }

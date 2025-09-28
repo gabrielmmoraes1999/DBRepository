@@ -8,10 +8,8 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.FIELD)
 public @interface JoinColumn {
-    /** Nome da coluna FK na tabela filha */
     String name();
 
-    /** Nome da coluna na tabela pai que a FK referencia (se vazio, usa a PK do pai) */
     String referencedColumnName() default "";
 
     boolean nullable() default true;
