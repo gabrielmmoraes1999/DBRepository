@@ -189,7 +189,20 @@ public class Function {
 
                     field.setAccessible(true);
                     if (field.isAnnotationPresent(OneToMany.class)) {
-                        Set<Object> collection = new LinkedHashSet<>();
+                        Collection<Object> collection;
+
+                        Class<?> fieldType = field.getType();
+                        if (Set.class.isAssignableFrom(fieldType)) {
+                            collection = new LinkedHashSet<>();
+                        } else if (List.class.isAssignableFrom(fieldType)) {
+                            collection = new ArrayList<>();
+                        } else if (Collection.class.isAssignableFrom(fieldType)) {
+                            collection = new ArrayList<>();
+                        } else {
+                            throw new IllegalArgumentException(
+                                    "Field annotated with @OneToMany is not a Collection: " + field.getName()
+                            );
+                        }
 
                         for (Map<String, Object> childRow : childList) {
                             collection.add(getEntity(childClass, childRow, connection));
