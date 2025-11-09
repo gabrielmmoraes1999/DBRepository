@@ -166,6 +166,7 @@ public class Function {
                         .map(s -> s + " = ?")
                         .collect(Collectors.joining(" AND "));
 
+                List<Map<String, Object>> childList;
                 try (PreparedStatement stmt = connection.prepareStatement(String.format("SELECT * FROM %s WHERE %s %s", joinTable, whereClause, orderSql))) {
                     int index = 1;
 
@@ -185,36 +186,35 @@ public class Function {
                         }
                     }
 
-                    List<Map<String, Object>> childList = Function.convertResultSetToMap(stmt.executeQuery());
+                    childList = Function.convertResultSetToMap(stmt.executeQuery());
+                }
 
-                    field.setAccessible(true);
-                    if (field.isAnnotationPresent(OneToMany.class)) {
-                        Collection<Object> collection;
+                field.setAccessible(true);
+                if (field.isAnnotationPresent(OneToMany.class)) {
+                    Collection<Object> collection;
 
-                        Class<?> fieldType = field.getType();
-                        if (Set.class.isAssignableFrom(fieldType)) {
-                            collection = new LinkedHashSet<>();
-                        } else if (List.class.isAssignableFrom(fieldType)) {
-                            collection = new ArrayList<>();
-                        } else if (Collection.class.isAssignableFrom(fieldType)) {
-                            collection = new ArrayList<>();
-                        } else {
-                            throw new IllegalArgumentException(
-                                    "Field annotated with @OneToMany is not a Collection: " + field.getName()
-                            );
-                        }
-
-                        for (Map<String, Object> childRow : childList) {
-                            collection.add(getEntity(childClass, childRow, connection));
-                        }
-
-                        field.set(entity, collection);
-                    } else if (field.isAnnotationPresent(OneToOne.class)) {
-                        if (!childList.isEmpty()) {
-                            field.set(entity, getEntity(childClass, childList.get(0), connection));
-                        }
+                    Class<?> fieldType = field.getType();
+                    if (Set.class.isAssignableFrom(fieldType)) {
+                        collection = new LinkedHashSet<>();
+                    } else if (List.class.isAssignableFrom(fieldType)) {
+                        collection = new ArrayList<>();
+                    } else if (Collection.class.isAssignableFrom(fieldType)) {
+                        collection = new ArrayList<>();
+                    } else {
+                        throw new IllegalArgumentException(
+                                "Field annotated with @OneToMany is not a Collection: " + field.getName()
+                        );
                     }
 
+                    for (Map<String, Object> childRow : childList) {
+                        collection.add(getEntity(childClass, childRow, connection));
+                    }
+
+                    field.set(entity, collection);
+                } else if (field.isAnnotationPresent(OneToOne.class)) {
+                    if (!childList.isEmpty()) {
+                        field.set(entity, getEntity(childClass, childList.get(0), connection));
+                    }
                 }
             }
         }

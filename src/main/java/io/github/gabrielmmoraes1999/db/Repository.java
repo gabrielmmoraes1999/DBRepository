@@ -13,24 +13,26 @@ import java.util.*;
 public class Repository<T, ID> implements InvocationHandler {
 
     private final Class<T> entityClass;
-    private Connection connection;
-    private final boolean closeConnection;
+    private final Connection connectionGlobal;
 
-    public Repository(Class<T> entityClass, Connection connection) {
+    public Repository(Class<T> entityClass, Connection connectionGlobal) {
         this.entityClass = entityClass;
-        this.connection = connection;
-        this.closeConnection = ConnectionPoolManager.isPresent();
+        this.connectionGlobal = connectionGlobal;
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+        Connection connection;
+
         if (ConnectionPoolManager.isPresent()) {
             try {
-                connection = ConnectionPoolManager.getDataSource().getConnection();
+                connection = ConnectionPoolManager.getConnection();
             } catch (SQLException ex) {
                 throw new RuntimeException(ex);
             }
+        } else {
+            connection = this.connectionGlobal;
         }
 
         boolean rollbackAutoCommit = false;
@@ -50,10 +52,7 @@ public class Repository<T, ID> implements InvocationHandler {
                     returnObject = QueryCustom.getEntity(preparedStatement, entityClass, connection);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else if (returnType.isAssignableFrom(List.class)) {
                     Class<?> classList = Function.getClassList(method);
@@ -67,77 +66,53 @@ public class Repository<T, ID> implements InvocationHandler {
                     }
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else if (returnType.isAssignableFrom(Map.class)) {
                     returnObject = QueryCustom.getMap(preparedStatement);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else if (returnType.isAssignableFrom(JSONObject.class)) {
                     returnObject = QueryCustom.getJsonObject(preparedStatement);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else if (returnType.isAssignableFrom(JSONArray.class)) {
                     returnObject = QueryCustom.getJsonArray(preparedStatement);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else {
                     returnObject = QueryCustom.getObject(preparedStatement, returnType);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 }
             } else if (method.isAnnotationPresent(Update.class)) {
                 returnObject = new QuerySQL(method, args).update(connection);
 
                 DataBase.commit(connection);
-
-                if (closeConnection)
-                    connection.close();
-
+                ConnectionPoolManager.closeConnection(connection);
                 return returnObject;
             } else if (method.isAnnotationPresent(Delete.class)) {
                 returnObject = new QuerySQL(method, args).delete(connection);
 
                 DataBase.commit(connection);
-
-                if (closeConnection)
-                    connection.close();
-
+                ConnectionPoolManager.closeConnection(connection);
                 return returnObject;
             }
 
             switch (nameMethod) {
                 case "insert":
-                    returnObject = insert((T) args[0]);
+                    returnObject = insert((T) args[0], connection);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "insertAll":
                     if (connection.getAutoCommit()) {
@@ -145,34 +120,25 @@ public class Repository<T, ID> implements InvocationHandler {
                         connection.setAutoCommit(false);
                     }
 
-                    returnObject = insertAll((List<T>) args[0]);
+                    returnObject = insertAll((List<T>) args[0], connection);
 
                     if (rollbackAutoCommit)
                         connection.setAutoCommit(true);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "update":
-                    returnObject = update((T) args[0]);
+                    returnObject = update((T) args[0], connection);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "save":
-                    returnObject = save((T) args[0]);
+                    returnObject = save((T) args[0], connection);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "saveAll":
                     if (connection.getAutoCommit()) {
@@ -180,65 +146,47 @@ public class Repository<T, ID> implements InvocationHandler {
                         connection.setAutoCommit(false);
                     }
 
-                    returnObject = saveAll((List<T>) args[0]);
+                    returnObject = saveAll((List<T>) args[0], connection);
 
                     if (rollbackAutoCommit)
                         connection.setAutoCommit(true);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "findById":
-                    returnObject = findById((ID) args[0]);
+                    returnObject = findById((ID) args[0], connection);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "findAll":
-                    returnObject = findAll();
+                    returnObject = findAll(connection);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "deleteById":
-                    returnObject = deleteById((ID) args[0]);
+                    returnObject = deleteById((ID) args[0], connection);
 
                     DataBase.commit(connection);
-
-                    if (closeConnection)
-                        connection.close();
-
+                    ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 default:
                     break;
             }
 
             if (nameMethod.startsWith("findBy")) {
-                returnObject = handleFindByMethod(method, args);
+                returnObject = handleFindByMethod(method, args, connection);
 
                 DataBase.commit(connection);
-
-                if (closeConnection)
-                    connection.close();
-
+                ConnectionPoolManager.closeConnection(connection);
                 return returnObject;
             } else if (nameMethod.startsWith("min") || nameMethod.startsWith("max") || nameMethod.startsWith("count")) {
-                returnObject = minMaxCount(method, args);
+                returnObject = minMaxCount(method, args, connection);
 
                 DataBase.commit(connection);
-
-                if (closeConnection)
-                    connection.close();
-
+                ConnectionPoolManager.closeConnection(connection);
                 return returnObject;
             }
         } catch (Exception ex) {
@@ -250,17 +198,14 @@ public class Repository<T, ID> implements InvocationHandler {
 
             if (rollbackAutoCommit)
                 connection.setAutoCommit(true);
-
-            if (closeConnection)
-                connection.close();
-
+            ConnectionPoolManager.closeConnection(connection);
             throw new RuntimeException(ex);
         }
 
         throw new UnsupportedOperationException("Unsupported method: " + method.getName());
     }
 
-    private Object handleFindByMethod(Method method, Object[] args) {
+    private Object handleFindByMethod(Method method, Object[] args, Connection connection) {
         String methodName = method.getName();
         Class<?> returnClass = method.getReturnType();
 
@@ -324,7 +269,7 @@ public class Repository<T, ID> implements InvocationHandler {
         }
     }
 
-    private Object minMaxCount(Method method, Object[] args) throws Throwable {
+    private Object minMaxCount(Method method, Object[] args, Connection connection) throws Throwable {
         if (!entityClass.isAnnotationPresent(Table.class)) {
             throw new IllegalArgumentException("The class does not have the annotation @Table.");
         }
@@ -360,7 +305,7 @@ public class Repository<T, ID> implements InvocationHandler {
         return QueryCustom.getObject(preparedStatement, method.getReturnType());
     }
 
-    public List<T> findAll() {
+    public List<T> findAll(Connection connection) {
         if (!entityClass.isAnnotationPresent(Table.class)) {
             throw new IllegalArgumentException("The class does not have the annotation @Table.");
         }
@@ -380,7 +325,7 @@ public class Repository<T, ID> implements InvocationHandler {
         return entityList;
     }
 
-    public T findById(ID id) {
+    public T findById(ID id, Connection connection) {
         if (!entityClass.isAnnotationPresent(Table.class)) {
             throw new IllegalArgumentException("The class does not have the annotation @Table.");
         }
@@ -415,16 +360,19 @@ public class Repository<T, ID> implements InvocationHandler {
 
         T result = null;
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql.toString())) {
-            if (id instanceof List) {
-                @SuppressWarnings("unchecked")
-                List<Object> keys = (List<Object>) id;
-                Function.setParams(preparedStatement, keys);
-            } else {
-                Function.setPreparedStatement(preparedStatement, 1, id);
-            }
+        List<Map<String, Object>> childList;
+        try {
+            try (PreparedStatement preparedStatement = connection.prepareStatement(sql.toString())) {
+                if (id instanceof List) {
+                    @SuppressWarnings("unchecked")
+                    List<Object> keys = (List<Object>) id;
+                    Function.setParams(preparedStatement, keys);
+                } else {
+                    Function.setPreparedStatement(preparedStatement, 1, id);
+                }
 
-            List<Map<String, Object>> childList = Function.convertResultSetToMap(preparedStatement.executeQuery());
+                childList = Function.convertResultSetToMap(preparedStatement.executeQuery());
+            }
 
             if (!childList.isEmpty()) {
                 result = Function.getEntity(entityClass, childList.get(0), connection);
@@ -436,7 +384,7 @@ public class Repository<T, ID> implements InvocationHandler {
         return result;
     }
 
-    private Integer insert(T entity) {
+    private Integer insert(T entity, Connection connection) {
         try {
             int register = Function.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT, connection);
             SubClass.execute(entity, TypeSQL.INSERT, connection);
@@ -446,7 +394,7 @@ public class Repository<T, ID> implements InvocationHandler {
         }
     }
 
-    private Integer insertAll(List<T> entityList) {
+    private Integer insertAll(List<T> entityList, Connection connection) {
         try {
             int register = 0;
 
@@ -462,7 +410,7 @@ public class Repository<T, ID> implements InvocationHandler {
         }
     }
 
-    private Integer update(T entity) {
+    private Integer update(T entity, Connection connection) {
         try {
             int register = Function.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE, connection);
             SubClass.execute(entity, TypeSQL.UPDATE, connection);
@@ -472,7 +420,7 @@ public class Repository<T, ID> implements InvocationHandler {
         }
     }
 
-    private T save(T entity) {
+    private T save(T entity, Connection connection) {
         T result;
 
         try {
@@ -524,9 +472,9 @@ public class Repository<T, ID> implements InvocationHandler {
                 result = entity;
             } else {
                 if (valuesPk.size() > 1) {
-                    result = findById((ID) valuesPk);
+                    result = findById((ID) valuesPk, connection);
                 } else {
-                    result = findById((ID) valuesPk.get(0));
+                    result = findById((ID) valuesPk.get(0), connection);
                 }
             }
         } catch (Exception e) {
@@ -536,17 +484,17 @@ public class Repository<T, ID> implements InvocationHandler {
         return result;
     }
 
-    private List<T> saveAll(List<T> entityList) {
+    private List<T> saveAll(List<T> entityList, Connection connection) {
         List<T> result = new ArrayList<>();
 
         for (T entity : entityList) {
-            result.add(save(entity));
+            result.add(save(entity, connection));
         }
 
         return result;
     }
 
-    private int deleteById(ID id) {
+    private int deleteById(ID id, Connection connection) {
         StringBuilder sql = new StringBuilder("DELETE FROM ");
 
         if (!entityClass.isAnnotationPresent(Table.class)) {
