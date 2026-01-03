@@ -6,7 +6,7 @@
 
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.5.4</version>
+    <version>1.5.5</version>
 
     <name>DBRepository</name>
     <description>Gerenciador de banco de dados.</description>

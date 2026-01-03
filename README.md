@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>1.5.4</version>
+    <version>1.5.5</version>
 </dependency>
 ```
 
@@ -16,6 +16,9 @@ Veja a Wiki https://github.com/gabrielmmoraes1999/DBRepository/wiki, para ter um
 ________________________________________________________________________________________________
 
 # Histórico de Versões
+
+## v1.5.5 - 03/01/2026
+- Suporte a returno de outros tipos de entidades.
 
 ## v1.5.4 - 08/11/2025
 - Corrigido o fechamento das conexoes quando usado o pool de conexão.

@@ -86,6 +86,12 @@ public class Repository<T, ID> implements InvocationHandler {
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
+                } else if (returnType.isAnnotationPresent(Table.class)) {
+                    returnObject = QueryCustom.getEntity(preparedStatement, returnType, connection);
+
+                    DataBase.commit(connection);
+                    ConnectionPoolManager.closeConnection(connection);
+                    return returnObject;
                 } else {
                     returnObject = QueryCustom.getObject(preparedStatement, returnType);
 
