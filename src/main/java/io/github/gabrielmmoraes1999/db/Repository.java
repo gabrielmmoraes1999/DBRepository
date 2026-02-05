@@ -390,30 +390,16 @@ public class Repository<T, ID> implements InvocationHandler {
         return result;
     }
 
-    private Integer insert(T entity, Connection connection) {
-        try {
-            int register = Function.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT, connection);
-            SubClass.execute(entity, TypeSQL.INSERT, connection);
-            return register;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    private Integer insert(T entity, Connection connection) throws SQLException, IllegalAccessException {
+        return DML.insertCascade(entity, connection);
     }
 
-    private Integer insertAll(List<T> entityList, Connection connection) {
-        try {
-            int register = 0;
-
-            for (T entity : entityList) {
-                Function.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT, connection);
-                SubClass.execute(entity, TypeSQL.INSERT, connection);
-                register++;
-            }
-
-            return register;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    private Integer insertAll(List<T> entityList, Connection connection) throws SQLException, IllegalAccessException {
+        int result = 0;
+        for (T entity : entityList) {
+            result = result + DML.insertCascade(entity, connection);
         }
+        return result;
     }
 
     private Integer update(T entity, Connection connection) {
