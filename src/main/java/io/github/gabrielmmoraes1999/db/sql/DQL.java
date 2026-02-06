@@ -1,9 +1,16 @@
 package io.github.gabrielmmoraes1999.db.sql;
 
 import io.github.gabrielmmoraes1999.db.annotation.*;
+import io.github.gabrielmmoraes1999.db.parse.MethodNameParser;
+import io.github.gabrielmmoraes1999.db.parse.ParsedQuery;
+import io.github.gabrielmmoraes1999.db.parse.SqlRenderer;
+import io.github.gabrielmmoraes1999.db.util.Function;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.sql.*;
 import java.util.*;
 
@@ -138,6 +145,97 @@ public class DQL {
         }
 
         return null;
+    }
+
+    public static <T> Object handleMethod(Class<T> entityClass, Method method, Object[] args, Connection connection) throws SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        String methodName = method.getName();
+        Class<?> returnClass = method.getReturnType();
+
+        if (!entityClass.isAnnotationPresent(Table.class)) {
+            throw new IllegalArgumentException("The class does not have the annotation @Table.");
+        }
+
+        T resultClass = null;
+        List<T> resultList = new ArrayList<>();
+        JSONObject jsonObject = new JSONObject();
+        JSONArray jsonArray = new JSONArray();
+
+        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
+        ParsedQuery query = MethodNameParser.parse(methodName);
+        String sql = SqlRenderer.toSql(query, table.name());
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            for (int i = 0; i < args.length; i++) {
+                Function.setPreparedStatement(preparedStatement, i + 1, args[i]);
+            }
+
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                ResultSetMetaData metaData = resultSet.getMetaData();
+                int columnCount = metaData.getColumnCount();
+
+                while (resultSet.next()) {
+                    if (returnClass.isAssignableFrom(List.class)) {
+                        T entity = entityClass.getDeclaredConstructor().newInstance();
+
+                        for (Field field : entityClass.getDeclaredFields()) {
+                            if (!field.isAnnotationPresent(Column.class)) {
+                                continue;
+                            }
+
+                            Column column = field.getAnnotation(Column.class);
+                            field.setAccessible(true);
+                            field.set(entity, resultSet.getObject(column.name()));
+                        }
+
+                        DQL.loadOneToOne(entity, connection);
+                        DQL.loadOneToMany(entity, connection);
+                        resultList.add(entity);
+                    } else if (returnClass.isAssignableFrom(entityClass)) {
+                        T entity = entityClass.getDeclaredConstructor().newInstance();
+
+                        for (Field field : entityClass.getDeclaredFields()) {
+                            if (!field.isAnnotationPresent(Column.class)) {
+                                continue;
+                            }
+
+                            Column column = field.getAnnotation(Column.class);
+                            field.setAccessible(true);
+                            field.set(entity, resultSet.getObject(column.name()));
+                        }
+
+                        DQL.loadOneToOne(entity, connection);
+                        DQL.loadOneToMany(entity, connection);
+                        resultClass = entity;
+                        break;
+                    } else if (returnClass.isAssignableFrom(JSONObject.class)) {
+                        for (int i = 1; i <= columnCount; i++) {
+                            jsonObject.put(metaData.getColumnLabel(i), resultSet.getObject(i));
+                        }
+                        break;
+                    } else if (returnClass.isAssignableFrom(JSONArray.class)) {
+                        JSONObject jsonObjectRow = new JSONObject();
+
+                        for (int i = 1; i <= columnCount; i++) {
+                            jsonObject.put(metaData.getColumnLabel(i), resultSet.getObject(i));
+                        }
+
+                        jsonArray.put(jsonObjectRow);
+                    }
+                }
+            }
+        }
+
+        if (returnClass.isAssignableFrom(List.class)) {
+            return resultList;
+        } else if (returnClass.isAssignableFrom(entityClass)) {
+            return resultClass;
+        } else if (returnClass.isAssignableFrom(JSONObject.class)) {
+            return jsonObject;
+        } else if (returnClass.isAssignableFrom(JSONArray.class)) {
+            return jsonArray;
+        } else {
+            return null;
+        }
     }
 
     private static void loadOneToMany(Object parent, Connection connection) throws IllegalAccessException, SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException {
