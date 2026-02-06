@@ -29,7 +29,6 @@ public final class SqlTemplate {
     }
 
     public List<Object> getBindValues() {
-
         List<Object> binds = new ArrayList<>();
 
         for (String param : paramOrder) {
@@ -38,6 +37,7 @@ public final class SqlTemplate {
             }
             binds.add(values.get(param));
         }
+
         return binds;
     }
 

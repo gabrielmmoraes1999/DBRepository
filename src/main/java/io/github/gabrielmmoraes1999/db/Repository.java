@@ -45,11 +45,10 @@ public class Repository<T, ID> implements InvocationHandler {
 
         try {
             if (method.isAnnotationPresent(Query.class)) {
-                PreparedStatement preparedStatement = new QuerySQL(method, args).getPreparedStatement(connection);
                 Class<?> returnType = method.getReturnType();
 
                 if (returnType.isAssignableFrom(entityClass)) {
-                    returnObject = QueryCustom.getEntity(preparedStatement, entityClass, connection);
+                    returnObject = DQLCustom.getEntity(entityClass, method, args, connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
@@ -58,55 +57,55 @@ public class Repository<T, ID> implements InvocationHandler {
                     Class<?> classList = Function.getClassList(method);
 
                     if (classList.isAssignableFrom(entityClass)) {
-                        returnObject = QueryCustom.getEntityList(preparedStatement, entityClass, connection);
+                        returnObject = DQLCustom.getEntityList(entityClass, method, args, connection);
                     } else if (classList.isAssignableFrom(Map.class)) {
-                        returnObject = QueryCustom.getMapList(preparedStatement);
+                        returnObject = DQLCustom.getMapList(method, args, connection);
                     } else {
-                        returnObject = QueryCustom.getObjectList(preparedStatement, classList);
+                        returnObject = DQLCustom.getObjectList(classList, method, args, connection);
                     }
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else if (returnType.isAssignableFrom(Map.class)) {
-                    returnObject = QueryCustom.getMap(preparedStatement);
+                    returnObject = DQLCustom.getMap(method, args, connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else if (returnType.isAssignableFrom(JSONObject.class)) {
-                    returnObject = QueryCustom.getJsonObject(preparedStatement);
+                    returnObject = DQLCustom.getJsonObject(method, args, connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else if (returnType.isAssignableFrom(JSONArray.class)) {
-                    returnObject = QueryCustom.getJsonArray(preparedStatement);
+                    returnObject = DQLCustom.getJsonArray(method, args, connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else if (returnType.isAnnotationPresent(Table.class)) {
-                    returnObject = QueryCustom.getEntity(preparedStatement, returnType, connection);
+                    returnObject = DQLCustom.getEntity(entityClass, method, args, connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 } else {
-                    returnObject = QueryCustom.getObject(preparedStatement, returnType);
+                    returnObject = DQLCustom.getObject(returnType, method, args, connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 }
             } else if (method.isAnnotationPresent(Update.class)) {
-                returnObject = new QuerySQL(method, args).update(connection);
+                returnObject = DMLCustom.update(method, args, connection);
 
                 DataBase.commit(connection);
                 ConnectionPoolManager.closeConnection(connection);
                 return returnObject;
             } else if (method.isAnnotationPresent(Delete.class)) {
-                returnObject = new QuerySQL(method, args).delete(connection);
+                returnObject = DMLCustom.delete(method, args, connection);
 
                 DataBase.commit(connection);
                 ConnectionPoolManager.closeConnection(connection);
@@ -188,12 +187,6 @@ public class Repository<T, ID> implements InvocationHandler {
                 DataBase.commit(connection);
                 ConnectionPoolManager.closeConnection(connection);
                 return returnObject;
-            } else if (nameMethod.startsWith("min") || nameMethod.startsWith("max") || nameMethod.startsWith("count")) {
-                returnObject = minMaxCount(method, args, connection);
-
-                DataBase.commit(connection);
-                ConnectionPoolManager.closeConnection(connection);
-                return returnObject;
             }
         } catch (Exception ex) {
             try {
@@ -209,42 +202,6 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         throw new UnsupportedOperationException("Unsupported method: " + method.getName());
-    }
-
-    private Object minMaxCount(Method method, Object[] args, Connection connection) throws Throwable {
-        if (!entityClass.isAnnotationPresent(Table.class)) {
-            throw new IllegalArgumentException("The class does not have the annotation @Table.");
-        }
-
-        int functionNameSize;
-        String columnName, function;
-        String methodName = method.getName();
-        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
-        FindBy findBy = new FindBy(methodName, args, entityClass);
-
-        if (methodName.startsWith("count")) {
-            functionNameSize = 5;
-        } else {
-            functionNameSize = 3;
-        }
-
-        function = methodName.substring(0, functionNameSize).toUpperCase();
-        if (methodName.contains("FindBy")) {
-            columnName = Function.getColumnName(entityClass, methodName.substring(functionNameSize, methodName.indexOf("FindBy")));
-        } else {
-            columnName = Function.getColumnName(entityClass, methodName.substring(functionNameSize));
-        }
-
-        String sql = "SELECT " + function + "(" + columnName + ") FROM " + String.join(
-                " ",
-                table.name(),
-                findBy.getWhere(),
-                Function.getOrderBy(methodName, entityClass)
-        );
-
-        PreparedStatement preparedStatement = connection.prepareStatement(sql);
-        Function.setParams(preparedStatement, findBy.getParams());
-        return QueryCustom.getObject(preparedStatement, method.getReturnType());
     }
 
     private Integer insertAll(List<T> entityList, Connection connection) throws SQLException, IllegalAccessException {

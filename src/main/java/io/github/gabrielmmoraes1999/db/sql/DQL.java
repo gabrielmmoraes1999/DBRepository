@@ -237,7 +237,7 @@ public class DQL {
         }
     }
 
-    private static void loadOneToMany(Object parent, Connection connection) throws IllegalAccessException, SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException {
+    protected static void loadOneToMany(Object parent, Connection connection) throws IllegalAccessException, SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException {
         Class<?> parentClass = parent.getClass();
 
         for (Field field : parentClass.getDeclaredFields()) {
@@ -326,7 +326,7 @@ public class DQL {
         }
     }
 
-    private static void loadOneToOne(Object parent, Connection connection) throws IllegalAccessException, SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException {
+    protected static void loadOneToOne(Object parent, Connection connection) throws IllegalAccessException, SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException {
         Class<?> parentClass = parent.getClass();
 
         for (Field field : parentClass.getDeclaredFields()) {
