@@ -4,7 +4,6 @@ import io.github.gabrielmmoraes1999.db.annotation.*;
 import io.github.gabrielmmoraes1999.db.parse.MethodNameParser;
 import io.github.gabrielmmoraes1999.db.parse.ParsedQuery;
 import io.github.gabrielmmoraes1999.db.parse.SqlRenderer;
-import io.github.gabrielmmoraes1999.db.util.Function;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -166,7 +165,7 @@ public class DQL {
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             for (int i = 0; i < args.length; i++) {
-                Function.setPreparedStatement(preparedStatement, i + 1, args[i]);
+                SQLUtils.setPreparedStatement(preparedStatement, i + 1, args[i]);
             }
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
