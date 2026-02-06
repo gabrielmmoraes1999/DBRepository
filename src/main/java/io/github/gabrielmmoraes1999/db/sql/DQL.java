@@ -10,21 +10,34 @@ import java.util.*;
 
 public class DQL {
 
-    public static <T> List<T> findAll(Class<T> entityClass, Connection connection) {
+    public static <T> List<T> findAll(Class<T> entityClass, Connection connection) throws SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         if (!entityClass.isAnnotationPresent(Table.class)) {
             throw new IllegalArgumentException("The class does not have the annotation @Table.");
         }
 
         List<T> entityList = new ArrayList<>();
         Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
-        String sql = "SELECT * FROM " + table.name();
+        String sql = String.format("SELECT * FROM %s", table.name());
 
-        try (Statement statement = connection.createStatement()) {
-            for (Map<String, Object> row : Function.convertResultSetToMap(statement.executeQuery(sql))) {
-                entityList.add(Function.getEntity(entityClass, row, connection));
+        try (Statement statement = connection.createStatement();
+             ResultSet rs = statement.executeQuery(sql)) {
+            while (rs.next()) {
+                T entity = entityClass.getDeclaredConstructor().newInstance();
+
+                for (Field field : entityClass.getDeclaredFields()) {
+                    if (!field.isAnnotationPresent(Column.class)) {
+                        continue;
+                    }
+
+                    Column column = field.getAnnotation(Column.class);
+                    field.setAccessible(true);
+                    field.set(entity, rs.getObject(column.name()));
+                }
+
+                DQL.loadOneToOne(entity, connection);
+                DQL.loadOneToMany(entity, connection);
+                entityList.add(entity);
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
 
         return entityList;
