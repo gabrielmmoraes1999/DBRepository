@@ -115,7 +115,7 @@ public class Repository<T, ID> implements InvocationHandler {
 
             switch (nameMethod) {
                 case "insert":
-                    returnObject = insert((T) args[0], connection);
+                    returnObject =  DML.insertCascade((T) args[0], connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
@@ -135,7 +135,7 @@ public class Repository<T, ID> implements InvocationHandler {
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "update":
-                    returnObject = update((T) args[0], connection);
+                    returnObject = DML.updateCascade((T) args[0], connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
@@ -161,19 +161,19 @@ public class Repository<T, ID> implements InvocationHandler {
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "findById":
-                    returnObject = findById((ID) args[0], connection);
+                    returnObject = DQL.findById(entityClass, (ID) args[0], connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "findAll":
-                    returnObject = findAll(connection);
+                    returnObject = DQL.findAll(entityClass, connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
                     return returnObject;
                 case "deleteById":
-                    returnObject = deleteById((ID) args[0], connection);
+                    returnObject = DML.deleteById((ID) args[0], entityClass, connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);
@@ -205,7 +205,7 @@ public class Repository<T, ID> implements InvocationHandler {
             if (rollbackAutoCommit)
                 connection.setAutoCommit(true);
             ConnectionPoolManager.closeConnection(connection);
-            throw new RuntimeException(ex);
+            throw ex;
         }
 
         throw new UnsupportedOperationException("Unsupported method: " + method.getName());
@@ -311,89 +311,6 @@ public class Repository<T, ID> implements InvocationHandler {
         return QueryCustom.getObject(preparedStatement, method.getReturnType());
     }
 
-    public List<T> findAll(Connection connection) {
-        if (!entityClass.isAnnotationPresent(Table.class)) {
-            throw new IllegalArgumentException("The class does not have the annotation @Table.");
-        }
-
-        List<T> entityList = new ArrayList<>();
-        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
-        String sql = "SELECT * FROM " + table.name();
-
-        try (Statement statement = connection.createStatement()) {
-            for (Map<String, Object> row : Function.convertResultSetToMap(statement.executeQuery(sql))) {
-                entityList.add(Function.getEntity(entityClass, row, connection));
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return entityList;
-    }
-
-    public T findById(ID id, Connection connection) {
-        if (!entityClass.isAnnotationPresent(Table.class)) {
-            throw new IllegalArgumentException("The class does not have the annotation @Table.");
-        }
-
-        List<Field> primaryKeyFields  = Function.getPrimaryKeyField(entityClass);
-        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
-        StringBuilder sql = new StringBuilder("SELECT * FROM ");
-        sql.append(table.name()).append(" WHERE ");
-
-        for (int i = 0; i < primaryKeyFields.size(); i++) {
-            Field primaryKeyField = primaryKeyFields.get(i);
-            Column column = Objects.requireNonNull(primaryKeyField.getAnnotation(Column.class));
-            sql.append(column.name()).append(" = ?");
-
-            if (i < primaryKeyFields.size() - 1) {
-                sql.append(" AND ");
-            }
-        }
-
-        if (id instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<Object> keys = (List<Object>) id;
-
-            if (!Objects.equals(primaryKeyFields.size(), keys.size())) {
-                throw new IllegalArgumentException("The amount PK invalid.");
-            }
-        } else {
-            if (!Objects.equals(primaryKeyFields.size(), 1)) {
-                throw new IllegalArgumentException("The amount PK invalid.");
-            }
-        }
-
-        T result = null;
-
-        List<Map<String, Object>> childList;
-        try {
-            try (PreparedStatement preparedStatement = connection.prepareStatement(sql.toString())) {
-                if (id instanceof List) {
-                    @SuppressWarnings("unchecked")
-                    List<Object> keys = (List<Object>) id;
-                    Function.setParams(preparedStatement, keys);
-                } else {
-                    Function.setPreparedStatement(preparedStatement, 1, id);
-                }
-
-                childList = Function.convertResultSetToMap(preparedStatement.executeQuery());
-            }
-
-            if (!childList.isEmpty()) {
-                result = Function.getEntity(entityClass, childList.get(0), connection);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return result;
-    }
-
-    private Integer insert(T entity, Connection connection) throws SQLException, IllegalAccessException {
-        return DML.insertCascade(entity, connection);
-    }
-
     private Integer insertAll(List<T> entityList, Connection connection) throws SQLException, IllegalAccessException {
         int result = 0;
         for (T entity : entityList) {
@@ -402,158 +319,25 @@ public class Repository<T, ID> implements InvocationHandler {
         return result;
     }
 
-    private Integer update(T entity, Connection connection) {
-        try {
-            int register = Function.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE, connection);
-            SubClass.execute(entity, TypeSQL.UPDATE, connection);
-            return register;
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private T save(T entity, Connection connection) {
-        T result;
-
-        try {
-            if (!entityClass.isAnnotationPresent(Table.class)) {
-                throw new IllegalArgumentException("The class does not have the annotation @Table.");
-            }
-
-            List<Object> valuesPk = new ArrayList<>();
-            List<Field> primaryKeyFields = Function.getPrimaryKeyField(entity);
-            StringBuilder sql = new StringBuilder("SELECT COUNT(1) FROM ");
-            Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
-            sql.append(table.name()).append(" WHERE ");
-
-            for (int i = 0; i < primaryKeyFields.size(); i++) {
-                Field primaryKeyField = primaryKeyFields.get(i);
-                Column column = Objects.requireNonNull(primaryKeyField.getAnnotation(Column.class));
-                sql.append(column.name()).append(" = ?");
-
-                if (i < primaryKeyFields.size() - 1) {
-                    sql.append(" AND ");
-                }
-            }
-
-            int count = 0;
-            try (PreparedStatement preparedStatement = connection.prepareStatement(sql.toString())) {
-                for (int index = 0; index < primaryKeyFields.size(); index++) {
-                    Field primaryKeyField = primaryKeyFields.get(index);
-                    primaryKeyField.setAccessible(true);
-                    valuesPk.add(primaryKeyField.get(entity));
-                    Function.setPreparedStatement(preparedStatement, index + 1, primaryKeyField.get(entity));
-                }
-
-                try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                    if (resultSet.next()) {
-                        count = resultSet.getInt(1);
-                    }
-                }
-            }
-
-            if (count > 0) {
-                Function.execute(entity, new UpdateSQL(entity).get(), TypeSQL.UPDATE, connection);
-            } else {
-                Function.execute(entity, new InsertSQL(entity).get(), TypeSQL.INSERT, connection);
-            }
-
-            SubClass.execute(entity, TypeSQL.UPDATE, connection);
-
-            if (count > 0) {
-                result = entity;
-            } else {
-                if (valuesPk.size() > 1) {
-                    result = findById((ID) valuesPk, connection);
-                } else {
-                    result = findById((ID) valuesPk.get(0), connection);
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return result;
-    }
-
-    private List<T> saveAll(List<T> entityList, Connection connection) {
-        List<T> result = new ArrayList<>();
-
-        for (T entity : entityList) {
-            result.add(save(entity, connection));
-        }
-
-        return result;
-    }
-
-    private int deleteById(ID id, Connection connection) {
-        StringBuilder sql = new StringBuilder("DELETE FROM ");
-
+    private T save(T entity, Connection connection) throws Exception {
         if (!entityClass.isAnnotationPresent(Table.class)) {
             throw new IllegalArgumentException("The class does not have the annotation @Table.");
         }
 
-        int countPk = 0;
-        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
-        sql.append(table.name()).append(" WHERE ");
+        int count = DML.updateCascade(entity, connection);
 
-        if (id instanceof List) {
-            boolean first = true;
-            @SuppressWarnings("unchecked")
-            List<Object> keys = (List<Object>) id;
-
-            for (Field field : entityClass.getDeclaredFields()) {
-                if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
-                    if (!first) {
-                        sql.append(" AND ");
-                    }
-
-                    Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
-                    if (keys.get(countPk) == null) {
-                        sql.append(column.name()).append(" IS NULL");
-                    } else {
-                        sql.append(column.name()).append(" = ?");
-                    }
-
-                    first = false;
-                    countPk++;
-                }
-            }
-        } else {
-            for (Field field : entityClass.getDeclaredFields()) {
-                if (field.isAnnotationPresent(PrimaryKey.class) && field.isAnnotationPresent(Column.class)) {
-                    Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
-                    sql.append(column.name()).append(" = ?");
-                    break;
-                }
-            }
+        if (count == 0) {
+            DML.insertCascade(entity, connection);
         }
 
-        int result;
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql.toString())) {
-            if (id instanceof List) {
-                @SuppressWarnings("unchecked")
-                List<Object> keys = (List<Object>) id;
+        return DQL.findById(entity, connection);
+    }
 
-                if (keys.size() != countPk) {
-                    throw new IllegalArgumentException("The amount PK invalid.");
-                }
+    private List<T> saveAll(List<T> entityList, Connection connection) throws Exception {
+        List<T> result = new ArrayList<>();
 
-                int index = 1;
-                for (Object value : keys) {
-                    if (value != null) {
-                        Function.setPreparedStatement(preparedStatement, index, value);
-                        index++;
-                    }
-                }
-
-            } else {
-                Function.setPreparedStatement(preparedStatement, 1, id);
-            }
-
-            result = preparedStatement.executeUpdate();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        for (T entity : entityList) {
+            result.add(save(entity, connection));
         }
 
         return result;
