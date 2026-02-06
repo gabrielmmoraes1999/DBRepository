@@ -183,7 +183,7 @@ public class Repository<T, ID> implements InvocationHandler {
             }
 
             if (nameMethod.startsWith("findBy")) {
-                returnObject = handleFindByMethod(method, args, connection);
+                returnObject = DQL.handleMethod(entityClass, method, args, connection);
 
                 DataBase.commit(connection);
                 ConnectionPoolManager.closeConnection(connection);
@@ -209,70 +209,6 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         throw new UnsupportedOperationException("Unsupported method: " + method.getName());
-    }
-
-    private Object handleFindByMethod(Method method, Object[] args, Connection connection) {
-        String methodName = method.getName();
-        Class<?> returnClass = method.getReturnType();
-
-        if (!entityClass.isAnnotationPresent(Table.class)) {
-            throw new IllegalArgumentException("The class does not have the annotation @Table.");
-        }
-
-        T resultClass = null;
-        List<T> resultList = new ArrayList<>();
-        JSONObject jsonObject = new JSONObject();
-        JSONArray jsonArray = new JSONArray();
-
-        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
-        FindBy findBy = new FindBy(methodName, args, entityClass);
-
-        String sql = "SELECT * FROM " + String.join(
-                " ",
-                table.name(),
-                findBy.getWhere(),
-                Function.getOrderBy(methodName, entityClass)
-        );
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            Function.setParams(preparedStatement, findBy.getParams());
-
-            for (Map<String, Object> row : Function.convertResultSetToMap(preparedStatement.executeQuery())) {
-                if (returnClass.isAssignableFrom(List.class)) {
-                    resultList.add(Function.getEntity(entityClass, row, connection));
-                } else if (returnClass.isAssignableFrom(entityClass)) {
-                    resultClass = Function.getEntity(entityClass, row, connection);
-                    break;
-                } else if (returnClass.isAssignableFrom(JSONObject.class)) {
-                    for (String columnName : row.keySet()) {
-                        jsonObject.put(columnName, row.get(columnName));
-                    }
-                    break;
-                } else if (returnClass.isAssignableFrom(JSONArray.class)) {
-                    JSONObject jsonObjectRow = new JSONObject();
-
-                    for (String columnName : row.keySet()) {
-                        jsonObjectRow.put(columnName, row.get(columnName));
-                    }
-
-                    jsonArray.put(jsonObjectRow);
-                }
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        if (returnClass.isAssignableFrom(List.class)) {
-            return resultList;
-        } else if (returnClass.isAssignableFrom(entityClass)) {
-            return resultClass;
-        } else if (returnClass.isAssignableFrom(JSONObject.class)) {
-            return jsonObject;
-        } else if (returnClass.isAssignableFrom(JSONArray.class)) {
-            return jsonArray;
-        } else {
-            return null;
-        }
     }
 
     private Object minMaxCount(Method method, Object[] args, Connection connection) throws Throwable {
