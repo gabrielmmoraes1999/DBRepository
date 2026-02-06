@@ -34,9 +34,10 @@ public class DMLCustom {
         try (PreparedStatement preparedStatement = connection.prepareStatement(sqlTemplate.getSql())) {
             List<Object> bindValues = sqlTemplate.getBindValues();
 
+            int position = 1;
             for (Object object : bindValues) {
-                int index = bindValues.indexOf(object);
-                SQLUtils.setPreparedStatement(preparedStatement, index + 1, object);
+                SQLUtils.setPreparedStatement(preparedStatement, position, object);
+                position++;
             }
 
             result = preparedStatement.executeUpdate();
@@ -65,9 +66,10 @@ public class DMLCustom {
         try (PreparedStatement preparedStatement = connection.prepareStatement(sqlTemplate.getSql())) {
             List<Object> bindValues = sqlTemplate.getBindValues();
 
+            int position = 1;
             for (Object object : bindValues) {
-                int index = bindValues.indexOf(object);
-                SQLUtils.setPreparedStatement(preparedStatement, index + 1, object);
+                SQLUtils.setPreparedStatement(preparedStatement, position, object);
+                position++;
             }
 
             result = preparedStatement.executeUpdate();
