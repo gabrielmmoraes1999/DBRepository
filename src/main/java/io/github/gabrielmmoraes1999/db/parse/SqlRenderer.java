@@ -6,8 +6,26 @@ public class SqlRenderer {
 
     public static String toSql(ParsedQuery q, String table) {
 
-        StringBuilder sql = new StringBuilder("SELECT * FROM ");
-        sql.append(table);
+        StringBuilder sql = new StringBuilder();
+
+        switch (q.type) {
+
+            case SELECT:
+                sql.append("SELECT * FROM ").append(table);
+                break;
+
+            case COUNT:
+                sql.append("SELECT COUNT(*) FROM ").append(table);
+                break;
+
+            case EXISTS:
+                sql.append("SELECT 1 FROM ").append(table);
+                break;
+
+            case DELETE:
+                sql.append("DELETE FROM ").append(table);
+                break;
+        }
 
         if (!q.orGroups.isEmpty()) {
             sql.append(" WHERE ");
@@ -22,7 +40,7 @@ public class SqlRenderer {
             );
         }
 
-        if (!q.orderByList.isEmpty()) {
+        if (q.type == QueryType.SELECT && !q.orderByList.isEmpty()) {
             sql.append(" ORDER BY ");
             sql.append(
                     q.orderByList.stream()
@@ -33,6 +51,7 @@ public class SqlRenderer {
 
         return sql.toString();
     }
+
 
     private static String conditionSql(Condition c) {
 
