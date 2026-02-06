@@ -1,7 +1,6 @@
 package io.github.gabrielmmoraes1999.db.sql;
 
 import io.github.gabrielmmoraes1999.db.annotation.*;
-import io.github.gabrielmmoraes1999.db.util.Function;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
