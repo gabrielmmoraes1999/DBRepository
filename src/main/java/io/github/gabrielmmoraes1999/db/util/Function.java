@@ -1,6 +1,5 @@
 package io.github.gabrielmmoraes1999.db.util;
 
-import io.github.gabrielmmoraes1999.db.TypeSQL;
 import io.github.gabrielmmoraes1999.db.annotation.*;
 
 import java.lang.reflect.*;
@@ -55,38 +54,6 @@ public class Function {
         }
 
         throw new RuntimeException("Coluna não encontrada para o campo: " + fieldName);
-    }
-
-    public static <T> List<Field> getPrimaryKeyField(Class<T> entityClass) {
-        List<Field> primaryKeyFields = new ArrayList<>();
-
-        for (Field field : entityClass.getDeclaredFields()) {
-            if (field.isAnnotationPresent(PrimaryKey.class)) {
-                primaryKeyFields.add(field);
-            }
-        }
-
-        if (primaryKeyFields.isEmpty()) {
-            throw new IllegalArgumentException("The class does not have the annotation @PrimaryKey.");
-        }
-
-        return primaryKeyFields;
-    }
-
-    public static <T> List<Field> getPrimaryKeyField(T entity) {
-        List<Field> primaryKeyFields = new ArrayList<>();
-
-        for (Field field : entity.getClass().getDeclaredFields()) {
-            if (field.isAnnotationPresent(PrimaryKey.class)) {
-                primaryKeyFields.add(field);
-            }
-        }
-
-        if (primaryKeyFields.isEmpty()) {
-            throw new IllegalArgumentException("The class does not have the annotation @PrimaryKey.");
-        }
-
-        return primaryKeyFields;
     }
 
     public static Class<?> getClassList(Method method) {
@@ -292,60 +259,6 @@ public class Function {
             result = preparedStatement.executeUpdate();
         } catch (Exception e) {
             throw new RuntimeException(e);
-        }
-
-        return result;
-    }
-
-    public static int execute(Object entity, String sql, TypeSQL typeSQL, Connection connection) throws Exception {
-        Class<?> clazz = entity.getClass();
-        Field[] fields = clazz.getDeclaredFields();
-
-        int result;
-        int index = 1;
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            List<Field> primaryKeyList = new ArrayList<>();
-            List<String> columnList = Function.extractColumns(sql);
-
-            switch (typeSQL) {
-                case INSERT:
-                    for (Field field : fields) {
-                        if (field.isAnnotationPresent(Column.class)) {
-                            field.setAccessible(true);
-                            Column column = Objects.requireNonNull(field.getAnnotation(Column.class));
-
-                            if (columnList.contains(column.name())) {
-                                Function.setPreparedStatement(preparedStatement, index, field.get(entity));
-                                index++;
-                            }
-                        }
-                    }
-                    break;
-                case UPDATE:
-                    for (Field field : fields) {
-                        if (field.isAnnotationPresent(PrimaryKey.class)) {
-                            primaryKeyList.add(field);
-                        }
-                    }
-
-                    for (Field field : fields) {
-                        if (field.isAnnotationPresent(Column.class) && !primaryKeyList.contains(field)) {
-                            field.setAccessible(true);
-                            Function.setPreparedStatement(preparedStatement, index, field.get(entity));
-                            index++;
-                        }
-                    }
-
-                    for (Field field : primaryKeyList) {
-                        field.setAccessible(true);
-                        Function.setPreparedStatement(preparedStatement, index, field.get(entity));
-                        index++;
-                    }
-                    break;
-            }
-
-            result = preparedStatement.executeUpdate();
         }
 
         return result;
