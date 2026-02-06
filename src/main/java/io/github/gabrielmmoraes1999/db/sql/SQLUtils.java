@@ -10,6 +10,7 @@ import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.List;
+import java.util.Objects;
 
 public class SQLUtils {
 
@@ -60,6 +61,38 @@ public class SQLUtils {
             preparedStatement.setInt(position, ((Enum<?>) value).ordinal());
         } else {
             preparedStatement.setObject(position, value);
+        }
+    }
+
+    public static void setPreparedStatement(PreparedStatement preparedStatement, int position, Object value) throws SQLException {
+        if (Objects.isNull(value)) {
+            preparedStatement.setObject(position, null);
+        } else {
+            Class<?> classType = value.getClass();
+
+            if (classType == Integer.class) {
+                preparedStatement.setInt(position, (Integer) value);
+            } else if (classType == Double.class) {
+                preparedStatement.setDouble(position, (Double) value);
+            } else if (classType == BigDecimal.class) {
+                preparedStatement.setBigDecimal(position, (BigDecimal) value);
+            } else if (classType == Boolean.class) {
+                preparedStatement.setBoolean(position, (Boolean) value);
+            } else if (classType == String.class) {
+                preparedStatement.setString(position, (String) value);
+            } else if (classType == Date.class) {
+                preparedStatement.setDate(position, (Date) value);
+            } else if (classType == Timestamp.class) {
+                preparedStatement.setTimestamp(position, (Timestamp) value);
+            } else if (classType == Time.class) {
+                preparedStatement.setTime(position, (Time) value);
+            } else if (classType == byte[].class) {
+                preparedStatement.setBytes(position, (byte[]) value);
+            } else if (classType.isEnum()) {
+                preparedStatement.setInt(position, ((Enum<?>) value).ordinal());
+            } else {
+                preparedStatement.setObject(position, value);
+            }
         }
     }
 
