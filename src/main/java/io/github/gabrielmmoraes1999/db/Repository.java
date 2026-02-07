@@ -26,11 +26,7 @@ public class Repository<T, ID> implements InvocationHandler {
         Connection connection;
 
         if (ConnectionPoolManager.isPresent()) {
-            try {
-                connection = ConnectionPoolManager.getConnection();
-            } catch (SQLException ex) {
-                throw new RuntimeException(ex);
-            }
+            connection = ConnectionPoolManager.getConnection();
         } else {
             connection = this.connectionGlobal;
         }
@@ -39,11 +35,15 @@ public class Repository<T, ID> implements InvocationHandler {
         String nameMethod = method.getName();
         Object returnObject;
 
-        if (this.entityClass == null) {
-            throw new IllegalArgumentException("The entity not found.");
-        }
-
         try {
+            if (this.entityClass == null) {
+                throw new IllegalArgumentException("The entity not found.");
+            }
+
+            if (!entityClass.isAnnotationPresent(Table.class)) {
+                throw new IllegalArgumentException("The class does not have the annotation @Table.");
+            }
+
             if (method.isAnnotationPresent(Query.class)) {
                 Class<?> returnType = method.getReturnType();
 
@@ -195,8 +195,10 @@ public class Repository<T, ID> implements InvocationHandler {
 
             }
 
-            if (rollbackAutoCommit)
+            if (rollbackAutoCommit) {
                 connection.setAutoCommit(true);
+            }
+
             ConnectionPoolManager.closeConnection(connection);
             throw ex;
         }
@@ -213,13 +215,7 @@ public class Repository<T, ID> implements InvocationHandler {
     }
 
     private T save(T entity, Connection connection) throws Exception {
-        if (!entityClass.isAnnotationPresent(Table.class)) {
-            throw new IllegalArgumentException("The class does not have the annotation @Table.");
-        }
-
-        int count = DML.updateCascade(entity, connection);
-
-        if (count == 0) {
+        if (DML.updateCascade(entity, connection) == 0) {
             DML.insertCascade(entity, connection);
         }
 
