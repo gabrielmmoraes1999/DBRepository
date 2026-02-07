@@ -44,20 +44,7 @@ public class DQLCustom {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 if (resultSet.next()) {
-                    entity = entityClass.getDeclaredConstructor().newInstance();
-
-                    for (Field field : entityClass.getDeclaredFields()) {
-                        if (!field.isAnnotationPresent(Column.class)) {
-                            continue;
-                        }
-
-                        Column column = field.getAnnotation(Column.class);
-                        field.setAccessible(true);
-                        field.set(entity, resultSet.getObject(column.name()));
-                    }
-
-                    DQL.loadOneToOne(entity, connection);
-                    DQL.loadOneToMany(entity, connection);
+                    entity = Entity.build(entityClass, resultSet, connection);
                 }
             }
 
@@ -95,21 +82,7 @@ public class DQLCustom {
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
                 while (resultSet.next()) {
-                    T entity = entityClass.getDeclaredConstructor().newInstance();
-
-                    for (Field field : entityClass.getDeclaredFields()) {
-                        if (!field.isAnnotationPresent(Column.class)) {
-                            continue;
-                        }
-
-                        Column column = field.getAnnotation(Column.class);
-                        field.setAccessible(true);
-                        field.set(entity, resultSet.getObject(column.name()));
-                    }
-
-                    DQL.loadOneToOne(entity, connection);
-                    DQL.loadOneToMany(entity, connection);
-                    resultList.add(entity);
+                    resultList.add(Entity.build(entityClass, resultSet, connection));
                 }
             }
 
