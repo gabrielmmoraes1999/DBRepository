@@ -1,11 +1,8 @@
 package io.github.gabrielmmoraes1999.db;
 
 import com.zaxxer.hikari.HikariDataSource;
-import javax.sql.DataSource;
-import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.util.concurrent.Semaphore;
 
 public class ConnectionPoolManager {
 
