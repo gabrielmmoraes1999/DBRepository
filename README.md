@@ -17,6 +17,9 @@ ________________________________________________________________________________
 
 # Histórico de Versões
 
+## v2.0.0 - 06/02/2026
+- Reorganização das classes
+
 ## v1.5.5 - 03/01/2026
 - Suporte a returno de outros tipos de entidades.
 
