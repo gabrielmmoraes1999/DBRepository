@@ -1,36 +1,64 @@
 package io.github.gabrielmmoraes1999.db.parse;
 
+import io.github.gabrielmmoraes1999.db.annotation.Column;
+import io.github.gabrielmmoraes1999.db.annotation.Table;
+
+import java.lang.reflect.Field;
+import java.util.StringJoiner;
 import java.util.stream.Collectors;
 
 public class SqlRenderer {
 
-    public static String toSql(ParsedQuery q, String table) {
+    private static final String DEFAULT_ALIAS = "p1";
+
+    public static <T> String toSql(ParsedQuery parsedQuery, Class<T> entityClass) {
+        if (!entityClass.isAnnotationPresent(Table.class)) {
+            throw new IllegalArgumentException("The class does not have the annotation @Table");
+        }
 
         StringBuilder sql = new StringBuilder();
+        Table table = entityClass.getAnnotation(Table.class);
+        String tableName = table.name();
 
-        switch (q.type) {
+        switch (parsedQuery.type) {
 
             case SELECT:
-                sql.append("SELECT * FROM ").append(table);
+                StringJoiner columns = new StringJoiner(", ");
+
+                for (Field field : entityClass.getDeclaredFields()) {
+                    if (!field.isAnnotationPresent(Column.class)) {
+                        continue;
+                    }
+
+                    Column column = field.getAnnotation(Column.class);
+                    columns.add(String.join(".", DEFAULT_ALIAS, column.name()));
+                }
+
+                sql.append("SELECT ")
+                        .append(columns)
+                        .append(" FROM ")
+                        .append(tableName)
+                        .append(" ")
+                        .append(DEFAULT_ALIAS);
                 break;
 
             case COUNT:
-                sql.append("SELECT COUNT(*) FROM ").append(table);
+                sql.append("SELECT COUNT(*) FROM ").append(tableName);
                 break;
 
             case EXISTS:
-                sql.append("SELECT 1 FROM ").append(table);
+                sql.append("SELECT 1 FROM ").append(tableName);
                 break;
 
             case DELETE:
-                sql.append("DELETE FROM ").append(table);
+                sql.append("DELETE FROM ").append(tableName);
                 break;
         }
 
-        if (!q.orGroups.isEmpty()) {
+        if (!parsedQuery.orGroups.isEmpty()) {
             sql.append(" WHERE ");
             sql.append(
-                    q.orGroups.stream()
+                    parsedQuery.orGroups.stream()
                             .map(group ->
                                     group.stream()
                                             .map(SqlRenderer::conditionSql)
@@ -40,11 +68,11 @@ public class SqlRenderer {
             );
         }
 
-        if (q.type == QueryType.SELECT && !q.orderByList.isEmpty()) {
+        if (parsedQuery.type == QueryType.SELECT && !parsedQuery.orderByList.isEmpty()) {
             sql.append(" ORDER BY ");
             sql.append(
-                    q.orderByList.stream()
-                            .map(o -> o.field + (o.desc ? " DESC" : " ASC"))
+                    parsedQuery.orderByList.stream()
+                            .map(o -> DEFAULT_ALIAS + "." + o.field + (o.desc ? " DESC" : " ASC"))
                             .collect(Collectors.joining(", "))
             );
         }
@@ -54,61 +82,61 @@ public class SqlRenderer {
 
 
     private static String conditionSql(Condition c) {
+        String field = DEFAULT_ALIAS + "." + c.field.toUpperCase();
 
         switch (c.operator) {
 
             case EQ:
-                return c.field + " = ?";
+                return field + " = ?";
 
             case NE:
-                return c.field + " <> ?";
+                return field + " <> ?";
 
             case GT:
-                return c.field + " > ?";
+                return field + " > ?";
 
             case GTE:
-                return c.field + " >= ?";
+                return field + " >= ?";
 
             case LT:
-                return c.field + " < ?";
+                return field + " < ?";
 
             case LTE:
-                return c.field + " <= ?";
+                return field + " <= ?";
 
             case LIKE:
             case CONTAINS:
             case STARTS_WITH:
             case ENDS_WITH:
-                return c.field + " LIKE ?";
+                return field + " LIKE ?";
 
             case NOT_LIKE:
-                return c.field + " NOT LIKE ?";
+                return field + " NOT LIKE ?";
 
             case IN:
-                return c.field + " IN (?)";
+                return field + " IN (?)";
 
             case NOT_IN:
-                return c.field + " NOT IN (?)";
+                return field + " NOT IN (?)";
 
             case BETWEEN:
-                return c.field + " BETWEEN ? AND ?";
+                return field + " BETWEEN ? AND ?";
 
             case IS_NULL:
-                return c.field + " IS NULL";
+                return field + " IS NULL";
 
             case IS_NOT_NULL:
-                return c.field + " IS NOT NULL";
+                return field + " IS NOT NULL";
 
             case TRUE:
-                return c.field + " = TRUE";
+                return field + " = TRUE";
 
             case FALSE:
-                return c.field + " = FALSE";
+                return field + " = FALSE";
 
             default:
-                throw new IllegalArgumentException(
-                        "Operador não suportado: " + c.operator
-                );
+                throw new IllegalArgumentException("Operador não suportado: " + c.operator);
         }
     }
+
 }

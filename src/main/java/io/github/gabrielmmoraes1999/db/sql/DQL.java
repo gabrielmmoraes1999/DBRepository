@@ -123,7 +123,7 @@ public class DQL {
 
         Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
         ParsedQuery query = MethodNameParser.parse(methodName);
-        String sql = SqlRenderer.toSql(query, table.name());
+        String sql = SqlRenderer.toSql(query, returnClass);
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             for (int i = 0; i < args.length; i++) {
