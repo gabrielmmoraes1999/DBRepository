@@ -1,6 +1,7 @@
 package io.github.gabrielmmoraes1999.db.sql;
 
 import io.github.gabrielmmoraes1999.db.annotation.*;
+import io.github.gabrielmmoraes1999.db.core.EntityBuilder;
 import io.github.gabrielmmoraes1999.db.parse.MethodNameParser;
 import io.github.gabrielmmoraes1999.db.parse.ParsedQuery;
 import io.github.gabrielmmoraes1999.db.parse.SqlRenderer;
@@ -20,17 +21,9 @@ public class DQL {
             throw new IllegalArgumentException("The class does not have the annotation @Table.");
         }
 
-        List<T> entityList = new ArrayList<>();
         Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
         String sql = String.format("SELECT * FROM %s", table.name());
-
-        try (Statement statement = connection.createStatement(); ResultSet resultSet = statement.executeQuery(sql)) {
-            while (resultSet.next()) {
-                entityList.add(Entity.build(entityClass, resultSet, connection));
-            }
-        }
-
-        return entityList;
+        return EntityBuilder.build(entityClass, sql, connection);
     }
 
     public static <T, ID> T findById(Class<T> entityClass, ID id, Connection connection) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, SQLException {
@@ -106,15 +99,13 @@ public class DQL {
         }
 
         String sql = String.format("SELECT %s FROM %s WHERE %s", selectClause, tableName, whereClause);
-        try (PreparedStatement preparedStatement = SQLUtils.getPreparedStatement(sql, entity, primaryKeyFields, connection);
-             ResultSet resultSet = preparedStatement.executeQuery()) {
+        List<T> result = EntityBuilder.build(entityClass, sql, connection);
 
-            if (resultSet.next()) {
-                entity = Entity.build(entityClass, resultSet, connection);
-            }
+        if (result.isEmpty()) {
+            return null;
+        } else {
+            return result.get(0);
         }
-
-        return entity;
     }
 
     public static <T> Object handleMethod(Class<T> entityClass, Method method, Object[] args, Connection connection) throws SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
@@ -139,30 +130,36 @@ public class DQL {
                 SQLUtils.setPreparedStatement(preparedStatement, i + 1, args[i]);
             }
 
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                ResultSetMetaData metaData = resultSet.getMetaData();
-                int columnCount = metaData.getColumnCount();
+            if (returnClass.isAssignableFrom(JSONObject.class) || returnClass.isAssignableFrom(JSONArray.class)) {
+                try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                    ResultSetMetaData metaData = resultSet.getMetaData();
+                    int columnCount = metaData.getColumnCount();
 
-                while (resultSet.next()) {
-                    if (returnClass.isAssignableFrom(List.class)) {
-                        resultList.add(Entity.build(entityClass, resultSet, connection));
-                    } else if (returnClass.isAssignableFrom(entityClass)) {
-                        resultClass = Entity.build(entityClass, resultSet, connection);;
-                        break;
-                    } else if (returnClass.isAssignableFrom(JSONObject.class)) {
-                        for (int i = 1; i <= columnCount; i++) {
-                            jsonObject.put(metaData.getColumnLabel(i), resultSet.getObject(i));
+                    if (returnClass.isAssignableFrom(JSONObject.class)) {
+                        if (resultSet.next()) {
+                            for (int i = 1; i <= columnCount; i++) {
+                                jsonObject.put(metaData.getColumnLabel(i), resultSet.getObject(i));
+                            }
                         }
-                        break;
                     } else if (returnClass.isAssignableFrom(JSONArray.class)) {
-                        JSONObject jsonObjectRow = new JSONObject();
+                        while (resultSet.next()) {
+                            JSONObject jsonObjectRow = new JSONObject();
 
-                        for (int i = 1; i <= columnCount; i++) {
-                            jsonObject.put(metaData.getColumnLabel(i), resultSet.getObject(i));
+                            for (int i = 1; i <= columnCount; i++) {
+                                jsonObject.put(metaData.getColumnLabel(i), resultSet.getObject(i));
+                            }
+
+                            jsonArray.put(jsonObjectRow);
                         }
-
-                        jsonArray.put(jsonObjectRow);
                     }
+                }
+            } else if (returnClass.isAssignableFrom(List.class)) {
+                resultList = EntityBuilder.build(entityClass, preparedStatement, connection);
+            } else if (returnClass.isAssignableFrom(entityClass)) {
+                List<T> entityList = EntityBuilder.build(entityClass, preparedStatement, connection);
+
+                if (!entityList.isEmpty()) {
+                    resultClass = entityList.get(0);
                 }
             }
         }

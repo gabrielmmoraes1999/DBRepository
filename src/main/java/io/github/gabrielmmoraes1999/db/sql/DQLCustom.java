@@ -1,13 +1,12 @@
 package io.github.gabrielmmoraes1999.db.sql;
 
-import io.github.gabrielmmoraes1999.db.annotation.Column;
 import io.github.gabrielmmoraes1999.db.annotation.Param;
 import io.github.gabrielmmoraes1999.db.annotation.Query;
+import io.github.gabrielmmoraes1999.db.core.EntityBuilder;
 import io.github.gabrielmmoraes1999.db.parse.SqlTemplate;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
@@ -20,7 +19,6 @@ public class DQLCustom {
         Query queryAnnotation = method.getAnnotation(Query.class);
         Parameter[] parameters = method.getParameters();
         SqlTemplate sqlTemplate = SqlTemplate.of(queryAnnotation.value());
-        T entity = null;
 
         if (args != null) {
             for (int index = 0; index < args.length; index++) {
@@ -33,24 +31,21 @@ public class DQLCustom {
             }
         }
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sqlTemplate.getSql())) {
-            List<Object> bindValues = sqlTemplate.getBindValues();
+        PreparedStatement preparedStatement = connection.prepareStatement(sqlTemplate.getSql());
+        List<Object> bindValues = sqlTemplate.getBindValues();
 
-            int position = 1;
-            for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
-            }
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                if (resultSet.next()) {
-                    entity = Entity.build(entityClass, resultSet, connection);
-                }
-            }
-
+        int position = 1;
+        for (Object object : bindValues) {
+            SQLUtils.setPreparedStatement(preparedStatement, position, object);
+            position++;
         }
 
-        return entity;
+        List<T> results = EntityBuilder.build(entityClass, preparedStatement, connection);
+        if (results.isEmpty()) {
+            return null;
+        } else {
+            return results.get(0);
+        }
     }
 
     public static <T> List<T> getEntityList(Class<T> entityClass, Method method, Object[] args, Connection connection) throws SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
@@ -69,26 +64,16 @@ public class DQLCustom {
             }
         }
 
-        List<T> resultList = new ArrayList<>();
+        PreparedStatement preparedStatement = connection.prepareStatement(sqlTemplate.getSql());
+        List<Object> bindValues = sqlTemplate.getBindValues();
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sqlTemplate.getSql())) {
-            List<Object> bindValues = sqlTemplate.getBindValues();
-
-            int position = 1;
-            for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
-            }
-
-            try (ResultSet resultSet = preparedStatement.executeQuery()) {
-                while (resultSet.next()) {
-                    resultList.add(Entity.build(entityClass, resultSet, connection));
-                }
-            }
-
+        int position = 1;
+        for (Object object : bindValues) {
+            SQLUtils.setPreparedStatement(preparedStatement, position, object);
+            position++;
         }
 
-        return resultList;
+        return EntityBuilder.build(entityClass, preparedStatement, connection);
     }
 
     public static Map<String, Object> getMap(Method method, Object[] args, Connection connection) throws SQLException {
