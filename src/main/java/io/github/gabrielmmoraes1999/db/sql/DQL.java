@@ -17,13 +17,13 @@ import java.util.*;
 public class DQL {
 
     public static <T> List<T> findAll(Class<T> entityClass, Connection connection) throws SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
-        if (!entityClass.isAnnotationPresent(Table.class)) {
-            throw new IllegalArgumentException("The class does not have the annotation @Table.");
+        List<T> resultList;
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(null, entityClass))) {
+            resultList = EntityBuilder.build(entityClass, preparedStatement);
         }
 
-        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
-        String sql = String.format("SELECT * FROM %s", table.name());
-        return EntityBuilder.build(entityClass, sql, connection);
+        return resultList;
     }
 
     public static <T, ID> T findById(Class<T> entityClass, ID id, Connection connection) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, SQLException {
@@ -69,9 +69,7 @@ public class DQL {
         }
 
         Table table = entityClass.getAnnotation(Table.class);
-        String tableName = table.name();
 
-        StringJoiner selectClause = new StringJoiner(", ");
         StringJoiner whereClause = new StringJoiner(" AND ");
         List<Field> primaryKeyFields = new ArrayList<>();
 
@@ -79,10 +77,10 @@ public class DQL {
             if (!field.isAnnotationPresent(Column.class)) {
                 continue;
             }
-            Column column = field.getAnnotation(Column.class);
 
+            Column column = field.getAnnotation(Column.class);
             if (field.isAnnotationPresent(PrimaryKey.class)) {
-                whereClause.add(String.format("%s = ?", column.name()));
+                whereClause.add(String.format("p1.%s = ?", column.name()));
                 primaryKeyFields.add(field);
 
                 field.setAccessible(true);
@@ -90,17 +88,25 @@ public class DQL {
                     throw new IllegalArgumentException("Valor do @PrimaryKey é nulo");
                 }
             }
-
-            selectClause.add(column.name());
         }
 
         if (primaryKeyFields.isEmpty()) {
             throw new IllegalArgumentException("Classe sem @PrimaryKey");
         }
 
-        String sql = String.format("SELECT %s FROM %s WHERE %s", selectClause, tableName, whereClause);
-        List<T> result = EntityBuilder.build(entityClass, sql, connection);
+        List<T> result;
+        String sql = String.format("%s WHERE %s", SqlRenderer.toSql(null, entityClass), whereClause);
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            for (int i = 0; i < primaryKeyFields.size(); i++) {
+                Field field = primaryKeyFields.get(i);
+                field.setAccessible(true);
+                SQLUtils.setPreparedStatement(preparedStatement, i + 1, field.get(entity));
+            }
 
+            result = EntityBuilder.build(entityClass, preparedStatement);
+        }
+
+        System.out.println(sql);
         if (result.isEmpty()) {
             return null;
         } else {
@@ -121,11 +127,8 @@ public class DQL {
         JSONObject jsonObject = new JSONObject();
         JSONArray jsonArray = new JSONArray();
 
-        Table table = Objects.requireNonNull(entityClass.getAnnotation(Table.class));
         ParsedQuery query = MethodNameParser.parse(methodName);
-        String sql = SqlRenderer.toSql(query, returnClass);
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(query, entityClass))) {
             for (int i = 0; i < args.length; i++) {
                 SQLUtils.setPreparedStatement(preparedStatement, i + 1, args[i]);
             }
@@ -154,9 +157,9 @@ public class DQL {
                     }
                 }
             } else if (returnClass.isAssignableFrom(List.class)) {
-                resultList = EntityBuilder.build(entityClass, preparedStatement, connection);
+                resultList = EntityBuilder.build(entityClass, preparedStatement);
             } else if (returnClass.isAssignableFrom(entityClass)) {
-                List<T> entityList = EntityBuilder.build(entityClass, preparedStatement, connection);
+                List<T> entityList = EntityBuilder.build(entityClass, preparedStatement);
 
                 if (!entityList.isEmpty()) {
                     resultClass = entityList.get(0);

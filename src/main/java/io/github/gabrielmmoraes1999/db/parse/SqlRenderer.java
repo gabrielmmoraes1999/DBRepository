@@ -1,15 +1,15 @@
 package io.github.gabrielmmoraes1999.db.parse;
 
-import io.github.gabrielmmoraes1999.db.annotation.Column;
-import io.github.gabrielmmoraes1999.db.annotation.Table;
+import io.github.gabrielmmoraes1999.db.annotation.*;
 
 import java.lang.reflect.Field;
-import java.util.StringJoiner;
+import java.lang.reflect.ParameterizedType;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class SqlRenderer {
 
-    private static final String DEFAULT_ALIAS = "p1";
+    private static final String ROOT_ALIAS = "p1";
 
     public static <T> String toSql(ParsedQuery parsedQuery, Class<T> entityClass) {
         if (!entityClass.isAnnotationPresent(Table.class)) {
@@ -17,75 +17,125 @@ public class SqlRenderer {
         }
 
         StringBuilder sql = new StringBuilder();
+        StringBuilder joins = new StringBuilder();
+        StringJoiner columns = new StringJoiner(", ");
+
+        int aliasCounter = 2;
+
         Table table = entityClass.getAnnotation(Table.class);
-        String tableName = table.name();
+        renderColumns(entityClass, ROOT_ALIAS, columns);
 
-        switch (parsedQuery.type) {
+        for (Field field : entityClass.getDeclaredFields()) {
+            Class<?> targetEntity;
 
-            case SELECT:
-                StringJoiner columns = new StringJoiner(", ");
+            if (field.isAnnotationPresent(OneToOne.class)) {
+                targetEntity = field.getType();
+            } else if (field.isAnnotationPresent(OneToMany.class)) {
+                targetEntity = getGenericType(field);
+            } else {
+                continue;
+            }
 
-                for (Field field : entityClass.getDeclaredFields()) {
-                    if (!field.isAnnotationPresent(Column.class)) {
-                        continue;
-                    }
+            if (targetEntity == null || !targetEntity.isAnnotationPresent(Table.class)) {
+                continue;
+            }
 
-                    Column column = field.getAnnotation(Column.class);
-                    columns.add(String.join(".", DEFAULT_ALIAS, column.name()));
-                }
+            String joinAlias = "p" + aliasCounter++;
+            Table joinTable = targetEntity.getAnnotation(Table.class);
 
-                sql.append("SELECT ")
-                        .append(columns)
-                        .append(" FROM ")
-                        .append(tableName)
-                        .append(" ")
-                        .append(DEFAULT_ALIAS);
-                break;
+            joins.append(" LEFT JOIN ")
+                    .append(joinTable.name())
+                    .append(" ")
+                    .append(joinAlias)
+                    .append(" ON ");
 
-            case COUNT:
-                sql.append("SELECT COUNT(*) FROM ").append(tableName);
-                break;
+            JoinColumns joinColumns = field.getAnnotation(JoinColumns.class);
+            JoinColumn joinColumn = field.getAnnotation(JoinColumn.class);
+            String onClause = null;
 
-            case EXISTS:
-                sql.append("SELECT 1 FROM ").append(tableName);
-                break;
+            if (joinColumns != null) {
+                onClause = Arrays.stream(joinColumns.value())
+                        .map(jc ->
+                                ROOT_ALIAS + "." + jc.referencedColumnName() +
+                                        " = " +
+                                        joinAlias + "." + jc.name()
+                        )
+                        .collect(Collectors.joining(" AND "));
+            } else if (joinColumn != null) {
+                onClause = Arrays.asList(joinColumn).stream().map(jc ->
+                                ROOT_ALIAS + "." + jc.referencedColumnName() +
+                                        " = " +
+                                        joinAlias + "." + jc.name()
+                        )
+                        .collect(Collectors.joining(" AND "));
+            }
 
-            case DELETE:
-                sql.append("DELETE FROM ").append(tableName);
-                break;
+            joins.append(onClause);
+            renderColumns(targetEntity, joinAlias, columns);
         }
 
-        if (!parsedQuery.orGroups.isEmpty()) {
-            sql.append(" WHERE ");
-            sql.append(
-                    parsedQuery.orGroups.stream()
-                            .map(group ->
-                                    group.stream()
-                                            .map(SqlRenderer::conditionSql)
-                                            .collect(Collectors.joining(" AND "))
-                            )
-                            .collect(Collectors.joining(" OR "))
-            );
-        }
+        sql.append("SELECT ")
+                .append(columns)
+                .append(" FROM ")
+                .append(table.name())
+                .append(" ")
+                .append(ROOT_ALIAS)
+                .append(joins);
 
-        if (parsedQuery.type == QueryType.SELECT && !parsedQuery.orderByList.isEmpty()) {
-            sql.append(" ORDER BY ");
-            sql.append(
-                    parsedQuery.orderByList.stream()
-                            .map(o -> DEFAULT_ALIAS + "." + o.field + (o.desc ? " DESC" : " ASC"))
-                            .collect(Collectors.joining(", "))
-            );
+        if (parsedQuery != null) {
+            if (!parsedQuery.orGroups.isEmpty()) {
+                sql.append(" WHERE ");
+                sql.append(
+                        parsedQuery.orGroups.stream()
+                                .map(group ->
+                                        group.stream()
+                                                .map(c -> conditionSql(c, ROOT_ALIAS))
+                                                .collect(Collectors.joining(" AND "))
+                                )
+                                .collect(Collectors.joining(" OR "))
+                );
+            }
+
+            if (parsedQuery.type == QueryType.SELECT && !parsedQuery.orderByList.isEmpty()) {
+                sql.append(" ORDER BY ");
+                sql.append(
+                        parsedQuery.orderByList.stream()
+                                .map(o -> ROOT_ALIAS + "." + o.field.toUpperCase() + (o.desc ? " DESC" : " ASC"))
+                                .collect(Collectors.joining(", "))
+                );
+            }
         }
 
         return sql.toString();
     }
 
+    private static void renderColumns(Class<?> entity, String alias, StringJoiner columns) {
+        for (Field field : entity.getDeclaredFields()) {
+            if (!field.isAnnotationPresent(Column.class)) {
+                continue;
+            }
 
-    private static String conditionSql(Condition c) {
-        String field = DEFAULT_ALIAS + "." + c.field.toUpperCase();
+            Column column = field.getAnnotation(Column.class);
+            if (Objects.equals(alias, "p1")) {
+                columns.add(alias + "." + column.name());
+            } else {
+                columns.add(alias + "." + column.name() + " AS " + alias.toUpperCase() + "_" + column.name());
+            }
+        }
+    }
+
+    private static Class<?> getGenericType(Field field) {
+        if (!(field.getGenericType() instanceof ParameterizedType)) {
+            return null;
+        }
+        ParameterizedType type = (ParameterizedType) field.getGenericType();
+        return (Class<?>) type.getActualTypeArguments()[0];
+    }
+
+    private static String conditionSql(Condition c, String alias) {
+        String field = alias + "." + c.field.toUpperCase();
 
         switch (c.operator) {
-
             case EQ:
                 return field + " = ?";
 

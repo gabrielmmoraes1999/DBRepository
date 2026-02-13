@@ -3,6 +3,7 @@ package io.github.gabrielmmoraes1999.db.sql;
 import io.github.gabrielmmoraes1999.db.annotation.Param;
 import io.github.gabrielmmoraes1999.db.annotation.Query;
 import io.github.gabrielmmoraes1999.db.core.EntityBuilder;
+import io.github.gabrielmmoraes1999.db.parse.SqlRenderer;
 import io.github.gabrielmmoraes1999.db.parse.SqlTemplate;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -31,6 +32,7 @@ public class DQLCustom {
             }
         }
 
+        System.out.println(sqlTemplate.getSql());
         PreparedStatement preparedStatement = connection.prepareStatement(sqlTemplate.getSql());
         List<Object> bindValues = sqlTemplate.getBindValues();
 
@@ -52,6 +54,7 @@ public class DQLCustom {
         Query queryAnnotation = method.getAnnotation(Query.class);
         Parameter[] parameters = method.getParameters();
         SqlTemplate sqlTemplate = SqlTemplate.of(queryAnnotation.value());
+        System.out.println(SqlRenderer.toSql(null, entityClass));
 
         if (args != null) {
             for (int index = 0; index < args.length; index++) {
@@ -64,6 +67,7 @@ public class DQLCustom {
             }
         }
 
+        System.out.println(sqlTemplate.getSql());
         PreparedStatement preparedStatement = connection.prepareStatement(sqlTemplate.getSql());
         List<Object> bindValues = sqlTemplate.getBindValues();
 
