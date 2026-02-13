@@ -4,6 +4,7 @@ import io.github.gabrielmmoraes1999.db.annotation.Column;
 import io.github.gabrielmmoraes1999.db.annotation.OneToMany;
 import io.github.gabrielmmoraes1999.db.annotation.OneToOne;
 import io.github.gabrielmmoraes1999.db.annotation.PrimaryKey;
+import io.github.gabrielmmoraes1999.db.util.Function;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -18,7 +19,6 @@ public class EntityBuilder {
         Map<String, T> rootMap = new LinkedHashMap<>();
         Map<Field, String> joinAliases = new LinkedHashMap<>();
 
-        // Processa OneToMany
         int aliasCounter = 2;
         for (Field field : entityClass.getDeclaredFields()) {
             Class<?> targetEntity;
@@ -26,7 +26,7 @@ public class EntityBuilder {
             if (field.isAnnotationPresent(OneToOne.class)) {
                 targetEntity = field.getType();
             } else if (field.isAnnotationPresent(OneToMany.class)) {
-                targetEntity = getGenericType(field);
+                targetEntity = Function.getGenericType(field);
             } else {
                 continue;
             }
@@ -49,14 +49,13 @@ public class EntityBuilder {
                     rootMap.put(rootKey, root);
                 }
 
-                // Processa OneToMany
                 for (Field field : entityClass.getDeclaredFields()) {
                     Class<?> targetEntity;
 
                     if (field.isAnnotationPresent(OneToOne.class)) {
                         targetEntity = field.getType();
                     } else if (field.isAnnotationPresent(OneToMany.class)) {
-                        targetEntity = getGenericType(field);
+                        targetEntity = Function.getGenericType(field);
                     } else {
                         continue;
                     }
@@ -121,7 +120,6 @@ public class EntityBuilder {
     }
 
     private static String extractPrimaryKey(Class<?> clazz, ResultSet rs, String alias) throws SQLException {
-
         StringBuilder key = new StringBuilder();
 
         for (Field field : clazz.getDeclaredFields()) {
@@ -130,10 +128,7 @@ public class EntityBuilder {
             }
 
             Column column = field.getAnnotation(Column.class);
-            String col = alias.equals("p1")
-                    ? column.name()
-                    : alias.toUpperCase() + "_" + column.name();
-
+            String col = alias.equals("p1") ? column.name() : alias.toUpperCase() + "_" + column.name();
             key.append(rs.getObject(col)).append("|");
         }
 
@@ -142,31 +137,6 @@ public class EntityBuilder {
 
     private static boolean containsEntity(List<?> list, Object entity) {
         return list.stream().anyMatch(e -> e.equals(entity));
-    }
-
-    private static Class<?> getGenericType(Field field) {
-
-        if (!(field.getGenericType() instanceof ParameterizedType)) {
-            return null;
-        }
-
-        ParameterizedType parameterizedType = (ParameterizedType) field.getGenericType();
-
-        if (parameterizedType.getActualTypeArguments().length == 0) {
-            return null;
-        }
-
-        Type typeArgument = parameterizedType.getActualTypeArguments()[0];
-
-        if (typeArgument instanceof Class<?>) {
-            return (Class<?>) typeArgument;
-        }
-
-        if (typeArgument instanceof ParameterizedType) {
-            return (Class<?>) ((ParameterizedType) typeArgument).getRawType();
-        }
-
-        return null;
     }
 
 }
