@@ -103,9 +103,7 @@ public class EntityBuilder {
             }
 
             Column column = field.getAnnotation(Column.class);
-            String columnName = alias.equals("p1")
-                    ? column.name()
-                    : alias.toUpperCase() + "_" + column.name();
+            String columnName = alias.equals("p1") ? column.name() : alias.toUpperCase() + "_" + column.name();
 
             Object value = rs.getObject(columnName);
             if (value != null) {
@@ -113,7 +111,12 @@ public class EntityBuilder {
             }
 
             field.setAccessible(true);
-            field.set(entity, value);
+            if (field.getType().isEnum()) {
+                assert column != null;
+                field.set(entity, field.getType().getEnumConstants()[rs.getInt(columnName)]);
+            } else {
+                field.set(entity, value);
+            }
         }
 
         return hasNonNull;
@@ -135,8 +138,33 @@ public class EntityBuilder {
         return key.toString();
     }
 
-    private static boolean containsEntity(List<?> list, Object entity) {
-        return list.stream().anyMatch(e -> e.equals(entity));
+    private static boolean containsEntity(List<?> list, Object candidate) throws IllegalAccessException {
+        for (Object existing : list) {
+            if (samePrimaryKey(existing, candidate)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean samePrimaryKey(Object a, Object b) throws IllegalAccessException {
+        Class<?> clazz = a.getClass();
+
+        for (Field field : clazz.getDeclaredFields()) {
+            if (!field.isAnnotationPresent(PrimaryKey.class)) {
+                continue;
+            }
+
+            field.setAccessible(true);
+
+            Object v1 = field.get(a);
+            Object v2 = field.get(b);
+
+            if (!Objects.equals(v1, v2)) {
+                return false;
+            }
+        }
+        return true;
     }
 
 }
