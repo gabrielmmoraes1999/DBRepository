@@ -106,7 +106,6 @@ public class DQL {
             result = EntityBuilder.build(entityClass, preparedStatement);
         }
 
-        System.out.println(sql);
         if (result.isEmpty()) {
             return null;
         } else {
