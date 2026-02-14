@@ -41,7 +41,6 @@ public final class MethodNameParser {
     private MethodNameParser() {}
 
     public static ParsedQuery parse(String methodName) {
-
         Matcher matcher = PREFIX_PATTERN.matcher(methodName);
 
         if (!matcher.find()) {

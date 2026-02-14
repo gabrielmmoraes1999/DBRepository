@@ -4,13 +4,11 @@ import java.util.*;
 
 public final class SqlTemplate {
 
-    private final String originalSql;
     private final String parsedSql;
     private final List<String> paramOrder;
     private final Map<String, Object> values = new HashMap<>();
 
     private SqlTemplate(String sql) {
-        this.originalSql = sql;
         this.paramOrder = new ArrayList<>();
         this.parsedSql = parse(sql, paramOrder);
     }

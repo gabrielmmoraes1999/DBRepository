@@ -1,114 +1,192 @@
 package io.github.gabrielmmoraes1999.db.parse;
 
+import io.github.gabrielmmoraes1999.db.annotation.*;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.util.*;
 import java.util.stream.Collectors;
 
 public class SqlRenderer {
 
-    public static String toSql(ParsedQuery q, String table) {
+    private static final String ROOT_ALIAS = "p1";
+
+    public static <T> String toSql(ParsedQuery parsedQuery, Class<T> entityClass) {
+        if (!entityClass.isAnnotationPresent(Table.class)) {
+            throw new IllegalArgumentException("The class does not have the annotation @Table");
+        }
 
         StringBuilder sql = new StringBuilder();
+        StringBuilder joins = new StringBuilder();
+        StringJoiner columns = new StringJoiner(", ");
 
-        switch (q.type) {
+        int aliasCounter = 2;
 
-            case SELECT:
-                sql.append("SELECT * FROM ").append(table);
-                break;
+        Table table = entityClass.getAnnotation(Table.class);
+        renderColumns(entityClass, ROOT_ALIAS, columns);
 
-            case COUNT:
-                sql.append("SELECT COUNT(*) FROM ").append(table);
-                break;
+        for (Field field : entityClass.getDeclaredFields()) {
+            Class<?> targetEntity;
 
-            case EXISTS:
-                sql.append("SELECT 1 FROM ").append(table);
-                break;
+            if (field.isAnnotationPresent(OneToOne.class)) {
+                targetEntity = field.getType();
+            } else if (field.isAnnotationPresent(OneToMany.class)) {
+                targetEntity = getGenericType(field);
+            } else {
+                continue;
+            }
 
-            case DELETE:
-                sql.append("DELETE FROM ").append(table);
-                break;
+            if (targetEntity == null || !targetEntity.isAnnotationPresent(Table.class)) {
+                continue;
+            }
+
+            String joinAlias = "p" + aliasCounter++;
+            Table joinTable = targetEntity.getAnnotation(Table.class);
+
+            joins.append(" LEFT JOIN ")
+                    .append(joinTable.name())
+                    .append(" ")
+                    .append(joinAlias)
+                    .append(" ON ");
+
+            JoinColumns joinColumns = field.getAnnotation(JoinColumns.class);
+            JoinColumn joinColumn = field.getAnnotation(JoinColumn.class);
+            String onClause = null;
+
+            if (joinColumns != null) {
+                onClause = Arrays.stream(joinColumns.value())
+                        .map(jc ->
+                                ROOT_ALIAS + "." + jc.referencedColumnName() +
+                                        " = " +
+                                        joinAlias + "." + jc.name()
+                        )
+                        .collect(Collectors.joining(" AND "));
+            } else if (joinColumn != null) {
+                onClause = Arrays.asList(joinColumn).stream().map(jc ->
+                                ROOT_ALIAS + "." + jc.referencedColumnName() +
+                                        " = " +
+                                        joinAlias + "." + jc.name()
+                        )
+                        .collect(Collectors.joining(" AND "));
+            }
+
+            joins.append(onClause);
+            renderColumns(targetEntity, joinAlias, columns);
         }
 
-        if (!q.orGroups.isEmpty()) {
-            sql.append(" WHERE ");
-            sql.append(
-                    q.orGroups.stream()
-                            .map(group ->
-                                    group.stream()
-                                            .map(SqlRenderer::conditionSql)
-                                            .collect(Collectors.joining(" AND "))
-                            )
-                            .collect(Collectors.joining(" OR "))
-            );
-        }
+        sql.append("SELECT ")
+                .append(columns)
+                .append(" FROM ")
+                .append(table.name())
+                .append(" ")
+                .append(ROOT_ALIAS)
+                .append(joins);
 
-        if (q.type == QueryType.SELECT && !q.orderByList.isEmpty()) {
-            sql.append(" ORDER BY ");
-            sql.append(
-                    q.orderByList.stream()
-                            .map(o -> o.field + (o.desc ? " DESC" : " ASC"))
-                            .collect(Collectors.joining(", "))
-            );
+        if (parsedQuery != null) {
+            if (!parsedQuery.orGroups.isEmpty()) {
+                sql.append(" WHERE ");
+                sql.append(
+                        parsedQuery.orGroups.stream()
+                                .map(group ->
+                                        group.stream()
+                                                .map(c -> conditionSql(c, ROOT_ALIAS))
+                                                .collect(Collectors.joining(" AND "))
+                                )
+                                .collect(Collectors.joining(" OR "))
+                );
+            }
+
+            if (parsedQuery.type == QueryType.SELECT && !parsedQuery.orderByList.isEmpty()) {
+                sql.append(" ORDER BY ");
+                sql.append(
+                        parsedQuery.orderByList.stream()
+                                .map(o -> ROOT_ALIAS + "." + o.field.toUpperCase() + (o.desc ? " DESC" : " ASC"))
+                                .collect(Collectors.joining(", "))
+                );
+            }
         }
 
         return sql.toString();
     }
 
+    private static void renderColumns(Class<?> entity, String alias, StringJoiner columns) {
+        for (Field field : entity.getDeclaredFields()) {
+            if (!field.isAnnotationPresent(Column.class)) {
+                continue;
+            }
 
-    private static String conditionSql(Condition c) {
+            Column column = field.getAnnotation(Column.class);
+            if (Objects.equals(alias, "p1")) {
+                columns.add(alias + "." + column.name());
+            } else {
+                columns.add(alias + "." + column.name() + " AS " + alias.toUpperCase() + "_" + column.name());
+            }
+        }
+    }
+
+    private static Class<?> getGenericType(Field field) {
+        if (!(field.getGenericType() instanceof ParameterizedType)) {
+            return null;
+        }
+        ParameterizedType type = (ParameterizedType) field.getGenericType();
+        return (Class<?>) type.getActualTypeArguments()[0];
+    }
+
+    private static String conditionSql(Condition c, String alias) {
+        String field = alias + "." + c.field.toUpperCase();
 
         switch (c.operator) {
-
             case EQ:
-                return c.field + " = ?";
+                return field + " = ?";
 
             case NE:
-                return c.field + " <> ?";
+                return field + " <> ?";
 
             case GT:
-                return c.field + " > ?";
+                return field + " > ?";
 
             case GTE:
-                return c.field + " >= ?";
+                return field + " >= ?";
 
             case LT:
-                return c.field + " < ?";
+                return field + " < ?";
 
             case LTE:
-                return c.field + " <= ?";
+                return field + " <= ?";
 
             case LIKE:
             case CONTAINS:
             case STARTS_WITH:
             case ENDS_WITH:
-                return c.field + " LIKE ?";
+                return field + " LIKE ?";
 
             case NOT_LIKE:
-                return c.field + " NOT LIKE ?";
+                return field + " NOT LIKE ?";
 
             case IN:
-                return c.field + " IN (?)";
+                return field + " IN (?)";
 
             case NOT_IN:
-                return c.field + " NOT IN (?)";
+                return field + " NOT IN (?)";
 
             case BETWEEN:
-                return c.field + " BETWEEN ? AND ?";
+                return field + " BETWEEN ? AND ?";
 
             case IS_NULL:
-                return c.field + " IS NULL";
+                return field + " IS NULL";
 
             case IS_NOT_NULL:
-                return c.field + " IS NOT NULL";
+                return field + " IS NOT NULL";
 
             case TRUE:
-                return c.field + " = TRUE";
+                return field + " = TRUE";
 
             case FALSE:
-                return c.field + " = FALSE";
+                return field + " = FALSE";
 
             default:
-                throw new IllegalArgumentException(
-                        "Operador não suportado: " + c.operator
-                );
+                throw new IllegalArgumentException("Operador não suportado: " + c.operator);
         }
     }
+
 }

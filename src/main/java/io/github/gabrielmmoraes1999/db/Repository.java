@@ -48,16 +48,18 @@ public class Repository<T, ID> implements InvocationHandler {
                 Class<?> returnType = method.getReturnType();
 
                 if (returnType.isAssignableFrom(entityClass)) {
-                    returnObject = DQLCustom.getEntity(entityClass, method, args, connection);
-
-                    DataBase.commit(connection);
-                    ConnectionPoolManager.closeConnection(connection);
-                    return returnObject;
+                    throw new IllegalArgumentException("The @Query annotation does not support entity return types.");
+//                    returnObject = DQLCustom.getEntity(entityClass, method, args, connection);
+//
+//                    DataBase.commit(connection);
+//                    ConnectionPoolManager.closeConnection(connection);
+//                    return returnObject;
                 } else if (returnType.isAssignableFrom(List.class)) {
                     Class<?> classList = Function.getClassList(method);
 
                     if (classList.isAssignableFrom(entityClass)) {
-                        returnObject = DQLCustom.getEntityList(entityClass, method, args, connection);
+                        throw new IllegalArgumentException("The @Query annotation does not support entity return types.");
+//                        returnObject = DQLCustom.getEntityList(entityClass, method, args, connection);
                     } else if (classList.isAssignableFrom(Map.class)) {
                         returnObject = DQLCustom.getMapList(method, args, connection);
                     } else {
@@ -81,12 +83,6 @@ public class Repository<T, ID> implements InvocationHandler {
                     return returnObject;
                 } else if (returnType.isAssignableFrom(JSONArray.class)) {
                     returnObject = DQLCustom.getJsonArray(method, args, connection);
-
-                    DataBase.commit(connection);
-                    ConnectionPoolManager.closeConnection(connection);
-                    return returnObject;
-                } else if (returnType.isAnnotationPresent(Table.class)) {
-                    returnObject = DQLCustom.getEntity(entityClass, method, args, connection);
 
                     DataBase.commit(connection);
                     ConnectionPoolManager.closeConnection(connection);

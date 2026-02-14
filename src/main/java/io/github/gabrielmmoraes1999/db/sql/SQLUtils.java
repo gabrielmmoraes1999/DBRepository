@@ -96,7 +96,7 @@ public class SQLUtils {
         }
     }
 
-    protected static Class<?> getCollectionGenericType(Field field) {
+    public static Class<?> getCollectionGenericType(Field field) {
         Type type = field.getGenericType();
 
         if (type instanceof ParameterizedType) {
@@ -138,7 +138,7 @@ public class SQLUtils {
         }
     }
 
-    protected static Field findFieldByColumn(Class<?> clazz, String columnName) {
+    public static Field findFieldByColumn(Class<?> clazz, String columnName) {
         for (Field field : clazz.getDeclaredFields()) {
             Column column = field.getAnnotation(Column.class);
             if (column != null && column.name().equals(columnName)) {

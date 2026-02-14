@@ -27,4 +27,26 @@ public class Function {
         return listGenericType;
     }
 
+    public static Class<?> getGenericType(Field field) {
+        if (!(field.getGenericType() instanceof ParameterizedType)) {
+            return null;
+        }
+
+        ParameterizedType parameterizedType = (ParameterizedType) field.getGenericType();
+        if (parameterizedType.getActualTypeArguments().length == 0) {
+            return null;
+        }
+
+        Type typeArgument = parameterizedType.getActualTypeArguments()[0];
+        if (typeArgument instanceof Class<?>) {
+            return (Class<?>) typeArgument;
+        }
+
+        if (typeArgument instanceof ParameterizedType) {
+            return (Class<?>) ((ParameterizedType) typeArgument).getRawType();
+        }
+
+        return null;
+    }
+
 }
