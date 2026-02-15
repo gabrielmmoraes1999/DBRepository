@@ -15,48 +15,90 @@ import java.util.Objects;
 public class SQLUtils {
 
     protected static int preparedStatement(String sql, Object entity, List<Field> fields, Connection connection) throws SQLException, IllegalAccessException {
+        int result = 0;
+
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+            int position = 1;
             for (Field field : fields) {
                 field.setAccessible(true);
-                SQLUtils.preparedStatement(
-                        preparedStatement,
-                        field.getType(),
-                        fields.indexOf(field) + 1,
-                        field.get(entity)
-                );
+                SQLUtils.preparedStatement(preparedStatement, field.getType(), position, field.get(entity));
+                position++;
             }
-            return preparedStatement.executeUpdate();
+
+            result = preparedStatement.executeUpdate();
         }
+
+        return result;
     }
 
     protected static PreparedStatement getPreparedStatement(String sql, Object entity, List<Field> fields, Connection connection) throws SQLException, IllegalAccessException {
         PreparedStatement preparedStatement = connection.prepareStatement(sql);
+
+        int position = 1;
         for (Field field : fields) {
             field.setAccessible(true);
-            SQLUtils.preparedStatement(preparedStatement, field.getType(), fields.indexOf(field) + 1, field.get(entity));
+            SQLUtils.preparedStatement(preparedStatement, field.getType(), position, field.get(entity));
+            position++;
         }
+
         return preparedStatement;
     }
 
     private static void preparedStatement(PreparedStatement preparedStatement, Class<?> classType, int position, Object value) throws SQLException {
         if (classType == Integer.class) {
-            preparedStatement.setInt(position, (Integer) value);
+            if (value == null) {
+                preparedStatement.setNull(position, Types.INTEGER);
+            } else {
+                preparedStatement.setInt(position, (Integer) value);
+            }
         } else if (classType == Double.class) {
-            preparedStatement.setDouble(position, (Double) value);
+            if (value == null) {
+                preparedStatement.setNull(position, Types.DOUBLE);
+            } else {
+                preparedStatement.setDouble(position, (Double) value);
+            }
         } else if (classType == BigDecimal.class) {
-            preparedStatement.setBigDecimal(position, (BigDecimal) value);
+            if (value == null) {
+                preparedStatement.setNull(position, Types.NUMERIC);
+            } else {
+                preparedStatement.setBigDecimal(position, (BigDecimal) value);
+            }
         } else if (classType == Boolean.class) {
-            preparedStatement.setBoolean(position, (Boolean) value);
+            if (value == null) {
+                preparedStatement.setNull(position, Types.BOOLEAN);
+            } else {
+                preparedStatement.setBoolean(position, (Boolean) value);
+            }
         } else if (classType == String.class) {
-            preparedStatement.setString(position, (String) value);
+            if (value == null) {
+                preparedStatement.setNull(position, Types.VARCHAR);
+            } else {
+                preparedStatement.setString(position, (String) value);
+            }
         } else if (classType == java.sql.Date.class) {
-            preparedStatement.setDate(position, (Date) value);
+            if (value == null) {
+                preparedStatement.setNull(position, Types.DATE);
+            } else {
+                preparedStatement.setDate(position, (Date) value);
+            }
         } else if (classType == Timestamp.class) {
-            preparedStatement.setTimestamp(position, (Timestamp) value);
+            if (value == null) {
+                preparedStatement.setNull(position, Types.TIMESTAMP);
+            } else {
+                preparedStatement.setTimestamp(position, (Timestamp) value);
+            }
         } else if (classType == Time.class) {
-            preparedStatement.setTime(position, (Time) value);
+            if (value == null) {
+                preparedStatement.setNull(position, Types.TIME);
+            } else {
+                preparedStatement.setTime(position, (Time) value);
+            }
         } else if (classType == byte[].class) {
-            preparedStatement.setBytes(position, (byte[]) value);
+            if (value == null) {
+                preparedStatement.setNull(position, Types.BLOB);
+            } else {
+                preparedStatement.setBytes(position, (byte[]) value);
+            }
         } else if (classType.isEnum()) {
             preparedStatement.setInt(position, ((Enum<?>) value).ordinal());
         } else {
@@ -114,13 +156,10 @@ public class SQLUtils {
         JoinColumns joinColumns = oneToManyField.getAnnotation(JoinColumns.class);
         if (joinColumns == null) return;
 
-        Class<?> parentClass = parent.getClass();
-        Class<?> childClass = child.getClass();
-
         for (JoinColumn joinColumn : joinColumns.value()) {
             String referencedColumn = joinColumn.referencedColumnName();
-            Field parentField = findFieldByColumn(parentClass, referencedColumn);
-            Field childField = findFieldByColumn(childClass, joinColumn.name());
+            Field parentField = findFieldByColumn(parent, referencedColumn);
+            Field childField = findFieldByColumn(child, joinColumn.name());
 
             if (parentField == null) {
                 throw new RuntimeException("JoinColumn inválido: '" + joinColumn.name() + "' não existente na tabela pai.");
@@ -138,13 +177,17 @@ public class SQLUtils {
         }
     }
 
-    public static Field findFieldByColumn(Class<?> clazz, String columnName) {
+    public static <T> Field findFieldByColumn(T entity, String columnName) {
+        Class<?> clazz = entity.getClass();
+
         for (Field field : clazz.getDeclaredFields()) {
             Column column = field.getAnnotation(Column.class);
             if (column != null && column.name().equals(columnName)) {
+                field.setAccessible(true);
                 return field;
             }
         }
+
         return null;
     }
 

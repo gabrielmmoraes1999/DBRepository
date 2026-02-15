@@ -3,6 +3,7 @@ package io.github.gabrielmmoraes1999.db.sql;
 import io.github.gabrielmmoraes1999.db.annotation.*;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.sql.*;
 import java.util.*;
 
@@ -125,42 +126,44 @@ public class DML {
 
     public static int updateCascade(Object entity, Connection connection) throws SQLException, IllegalAccessException {
         int result = update(entity, connection);
-        Class<?> entityClass = entity.getClass();
 
-        for (Field field : entityClass.getDeclaredFields()) {
-            if (!field.isAnnotationPresent(OneToMany.class)) {
-                continue;
-            }
+        if (result > 0) {
+            Class<?> entityClass = entity.getClass();
 
-            field.setAccessible(true);
-            Object value = field.get(entity);
+            for (Field field : entityClass.getDeclaredFields()) {
+                if (!field.isAnnotationPresent(OneToMany.class)) {
+                    continue;
+                }
 
-            result = result + DML.deleteChildren(entity, field, connection);
+                field.setAccessible(true);
+                Object value = field.get(entity);
 
-            if (value == null) {
-                continue;
-            }
+                result = result + DML.deleteChildren(entity, field, connection);
 
-            if (!(value instanceof Collection)) {
-                continue;
-            }
+                if (value == null) {
+                    continue;
+                }
 
-            for (Object child : (Collection<?>) value) {
-                SQLUtils.copyJoinColumns(entity, child, field);
-                result = result + insert(child, connection);
+                if (!(value instanceof Collection)) {
+                    continue;
+                }
+
+                for (Object child : (Collection<?>) value) {
+                    SQLUtils.copyJoinColumns(entity, child, field);
+                    result = result + insert(child, connection);
+                }
             }
         }
 
         return result;
     }
 
-    public static <ID> int deleteById(ID id, Object entity, Connection connection) throws SQLException, IllegalAccessException {
-        Class<?> entityClass = entity.getClass();
-
+    public static <T, ID> int deleteById(ID id, Class<T> entityClass, Connection connection) throws SQLException, IllegalAccessException, NoSuchMethodException, InvocationTargetException, InstantiationException {
         if (!entityClass.isAnnotationPresent(Table.class)) {
             throw new IllegalArgumentException("The class does not have the annotation @Table");
         }
 
+        T entity = entityClass.getDeclaredConstructor().newInstance();
         Table table = entityClass.getAnnotation(Table.class);
         String tableName = table.name();
 
@@ -193,10 +196,11 @@ public class DML {
                 throw new IllegalArgumentException("The amount PK invalid.");
             }
 
+            int index = 0;
             for (Field field : fields) {
                 field.setAccessible(true);
-                int index = fields.indexOf(field);
                 field.set(entity, keys.get(index));
+                index++;
             }
         } else {
             for (Field field : fields) {
@@ -205,11 +209,11 @@ public class DML {
             }
         }
 
-        String sql = String.format("DELETE %s WHERE %s", tableName, whereClause);
+        String sql = String.format("DELETE FROM %s WHERE %s", tableName, whereClause);
         return SQLUtils.preparedStatement(sql, entity, fields, connection);
     }
 
-    protected static int deleteChildren(Object parent, Field oneToManyField, Connection connection) throws SQLException, IllegalAccessException {
+    protected static <T> int deleteChildren(T entity, Field oneToManyField, Connection connection) throws SQLException, IllegalAccessException {
         JoinColumns joinColumns = oneToManyField.getAnnotation(JoinColumns.class);
         if (joinColumns == null) {
             return 0;
@@ -227,7 +231,7 @@ public class DML {
         List<Field> fields = new ArrayList<>();
 
         for (JoinColumn joinColumn : joinColumns.value()) {
-            Field parentField = SQLUtils.findFieldByColumn(parent.getClass(), joinColumn.referencedColumnName());
+            Field parentField = SQLUtils.findFieldByColumn(entity, joinColumn.referencedColumnName());
 
             if (parentField == null) {
                 throw new RuntimeException("Campo não encontrado: " + joinColumn.referencedColumnName());
@@ -239,7 +243,7 @@ public class DML {
         }
 
         String sql = String.format("DELETE FROM %s WHERE %s", tableName, whereClause);
-        return SQLUtils.preparedStatement(sql, childClass, fields, connection);
+        return SQLUtils.preparedStatement(sql, entity, fields, connection);
     }
 
 }
