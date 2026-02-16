@@ -19,7 +19,7 @@ public class DQL {
     public static <T> List<T> findAll(Class<T> entityClass, Connection connection) throws SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         List<T> resultList;
 
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(null, entityClass))) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(null, null, entityClass))) {
             resultList = EntityBuilder.build(entityClass, preparedStatement);
         }
 
@@ -95,7 +95,7 @@ public class DQL {
         }
 
         List<T> result;
-        String sql = String.format("%s WHERE %s", SqlRenderer.toSql(null, entityClass), whereClause);
+        String sql = String.format("%s WHERE %s", SqlRenderer.toSql(null, null, entityClass), whereClause);
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
             for (int i = 0; i < primaryKeyFields.size(); i++) {
                 Field field = primaryKeyFields.get(i);
@@ -127,7 +127,7 @@ public class DQL {
         JSONArray jsonArray = new JSONArray();
 
         ParsedQuery query = MethodNameParser.parse(methodName);
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(query, entityClass))) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(query, args[0], entityClass))) {
             for (int i = 0; i < args.length; i++) {
                 SQLUtils.setPreparedStatement(preparedStatement, i + 1, args[i]);
             }

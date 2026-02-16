@@ -17,6 +17,9 @@ ________________________________________________________________________________
 
 # Histórico de Versões
 
+## v2.1.0 - 16/02/2026
+- Adicionado suporte a metodos com `in` com argumento `List<?>`.
+
 ## v2.0.3 - 15/02/2026
 - Correção bug insert ou update quando entidade tem a anotações `OneToMany` e `OneToOne`.
 

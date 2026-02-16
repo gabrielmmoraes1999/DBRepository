@@ -6,12 +6,13 @@ import java.lang.reflect.Field;
 import java.lang.reflect.ParameterizedType;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class SqlRenderer {
 
     private static final String ROOT_ALIAS = "p1";
 
-    public static <T> String toSql(ParsedQuery parsedQuery, Class<T> entityClass) {
+    public static <T> String toSql(ParsedQuery parsedQuery, Object param, Class<T> entityClass) {
         if (!entityClass.isAnnotationPresent(Table.class)) {
             throw new IllegalArgumentException("The class does not have the annotation @Table");
         }
@@ -89,7 +90,7 @@ public class SqlRenderer {
                         parsedQuery.orGroups.stream()
                                 .map(group ->
                                         group.stream()
-                                                .map(c -> conditionSql(c, ROOT_ALIAS))
+                                                .map(c -> conditionSql(c, ROOT_ALIAS, param))
                                                 .collect(Collectors.joining(" AND "))
                                 )
                                 .collect(Collectors.joining(" OR "))
@@ -132,8 +133,18 @@ public class SqlRenderer {
         return (Class<?>) type.getActualTypeArguments()[0];
     }
 
-    private static String conditionSql(Condition c, String alias) {
+    private static String conditionSql(Condition c, String alias, Object param) {
         String field = alias + "." + c.field.toUpperCase();
+
+        if ((c.operator == Operator.IN || c.operator == Operator.NOT_IN) && param != null) {
+            int size = ((Collection<?>) param).size();
+
+            String placeholders = IntStream.range(0, size)
+                    .mapToObj(i -> "?")
+                    .collect(Collectors.joining(", "));
+
+            return field + " IN (" + placeholders + ")";
+        }
 
         switch (c.operator) {
             case EQ:
@@ -162,12 +173,6 @@ public class SqlRenderer {
 
             case NOT_LIKE:
                 return field + " NOT LIKE ?";
-
-            case IN:
-                return field + " IN (?)";
-
-            case NOT_IN:
-                return field + " NOT IN (?)";
 
             case BETWEEN:
                 return field + " BETWEEN ? AND ?";

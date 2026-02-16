@@ -9,6 +9,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.sql.*;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -132,6 +133,12 @@ public class SQLUtils {
                 preparedStatement.setBytes(position, (byte[]) value);
             } else if (classType.isEnum()) {
                 preparedStatement.setInt(position, ((Enum<?>) value).ordinal());
+            } else if (Collection.class.isAssignableFrom(classType)) {
+                int index = 1;
+                for (Object valueCollection : (Collection<?>) value) {
+                    preparedStatement.setObject(index, valueCollection);
+                    index++;
+                }
             } else {
                 preparedStatement.setObject(position, value);
             }
