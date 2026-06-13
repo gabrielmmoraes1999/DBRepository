@@ -2,7 +2,6 @@ package io.github.gabrielmmoraes1999.db.sql;
 
 import io.github.gabrielmmoraes1999.db.annotation.Param;
 import io.github.gabrielmmoraes1999.db.annotation.Query;
-import io.github.gabrielmmoraes1999.db.annotation.Table;
 import io.github.gabrielmmoraes1999.db.core.EntityBuilder;
 import io.github.gabrielmmoraes1999.db.parse.SqlTemplate;
 import org.json.JSONArray;
@@ -16,7 +15,6 @@ import java.util.*;
 
 public class DQLCustom {
 
-    @Deprecated
     public static <T> T getEntity(Class<T> entityClass, Method method, Object[] args, Connection connection) throws SQLException, InvocationTargetException, IllegalAccessException, NoSuchMethodException, InstantiationException {
         Query queryAnnotation = method.getAnnotation(Query.class);
         Parameter[] parameters = method.getParameters();
@@ -43,7 +41,7 @@ public class DQLCustom {
                 position++;
             }
 
-            results = EntityBuilder.build(entityClass, preparedStatement);
+            results = EntityBuilder.buildSimple(entityClass, preparedStatement);
         }
 
         if (results.isEmpty()) {
@@ -53,7 +51,6 @@ public class DQLCustom {
         }
     }
 
-    @Deprecated
     public static <T> List<T> getEntityList(Class<T> entityClass, Method method, Object[] args, Connection connection) throws SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         Query queryAnnotation = method.getAnnotation(Query.class);
         Parameter[] parameters = method.getParameters();
@@ -80,7 +77,7 @@ public class DQLCustom {
                 position++;
             }
 
-            results = EntityBuilder.build(entityClass, preparedStatement);
+            results = EntityBuilder.buildSimple(entityClass, preparedStatement);
         }
 
         return results;

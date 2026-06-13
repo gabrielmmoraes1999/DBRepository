@@ -94,6 +94,39 @@ public class EntityBuilder {
         return new ArrayList<>(rootMap.values());
     }
 
+    public static <T> List<T> buildSimple(Class<T> entityClass, PreparedStatement preparedStatement) throws SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
+        List<T> result = new ArrayList<>();
+
+        try (ResultSet rs = preparedStatement.executeQuery()) {
+            while (rs.next()) {
+                T entity = entityClass.getDeclaredConstructor().newInstance();
+                populateEntity(entity, entityClass, rs);
+                result.add(entity);
+            }
+        }
+
+        return result;
+    }
+
+    private static void populateEntity(Object entity, Class<?> clazz, ResultSet rs) throws SQLException, IllegalAccessException {
+        for (Field field : clazz.getDeclaredFields()) {
+            if (!field.isAnnotationPresent(Column.class)) {
+                continue;
+            }
+
+            Column column = field.getAnnotation(Column.class);
+            Object value = rs.getObject(column.name());
+
+            field.setAccessible(true);
+            if (field.getType().isEnum()) {
+                assert column != null;
+                field.set(entity, field.getType().getEnumConstants()[rs.getInt(column.name())]);
+            } else {
+                field.set(entity, value);
+            }
+        }
+    }
+
     private static boolean populateEntity(Object entity, Class<?> clazz, ResultSet rs, String alias) throws SQLException, IllegalAccessException {
         boolean hasNonNull = false;
 

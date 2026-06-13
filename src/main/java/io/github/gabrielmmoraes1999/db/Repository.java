@@ -47,19 +47,17 @@ public class Repository<T, ID> implements InvocationHandler {
             if (method.isAnnotationPresent(Query.class)) {
                 Class<?> returnType = method.getReturnType();
 
-                if (returnType.isAssignableFrom(entityClass)) {
-                    throw new IllegalArgumentException("The @Query annotation does not support entity return types.");
-//                    returnObject = DQLCustom.getEntity(entityClass, method, args, connection);
-//
-//                    DataBase.commit(connection);
-//                    ConnectionPoolManager.closeConnection(connection);
-//                    return returnObject;
+                if (returnType.isAnnotationPresent(Table.class) || returnType.isAssignableFrom(entityClass)) {
+                    returnObject = DQLCustom.getEntity(returnType, method, args, connection);
+
+                    DataBase.commit(connection);
+                    ConnectionPoolManager.closeConnection(connection);
+                    return returnObject;
                 } else if (returnType.isAssignableFrom(List.class)) {
                     Class<?> classList = Function.getClassList(method);
 
-                    if (classList.isAssignableFrom(entityClass)) {
-                        throw new IllegalArgumentException("The @Query annotation does not support entity return types.");
-//                        returnObject = DQLCustom.getEntityList(entityClass, method, args, connection);
+                    if (classList.isAnnotationPresent(Table.class) || classList.isAssignableFrom(entityClass)) {
+                        returnObject = DQLCustom.getEntityList(classList, method, args, connection);
                     } else if (classList.isAssignableFrom(Map.class)) {
                         returnObject = DQLCustom.getMapList(method, args, connection);
                     } else {

@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>2.0.3</version>
+    <version>2.1.1</version>
 </dependency>
 ```
 
@@ -16,6 +16,9 @@ Veja a Wiki https://github.com/gabrielmmoraes1999/DBRepository/wiki, para ter um
 ________________________________________________________________________________________________
 
 # Histórico de Versões
+
+## v2.1.1 - 12/06/2026
+- Restaurado o suporte do retorno de entidade quando usado da anotação `Query`.
 
 ## v2.1.0 - 16/02/2026
 - Adicionado suporte a metodos com `in` com argumento `List<?>`.
