@@ -17,6 +17,9 @@ ________________________________________________________________________________
 
 # Histórico de Versões
 
+## v2.1.2 - 16/06/2026
+- Removido a Exception quando a chave primaria for nula.
+
 ## v2.1.1 - 12/06/2026
 - Restaurado o suporte do retorno de entidade quando usado da anotação `Query`.
 

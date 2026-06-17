@@ -68,8 +68,6 @@ public class DQL {
             throw new IllegalArgumentException("The class does not have the annotation @Table.");
         }
 
-        Table table = entityClass.getAnnotation(Table.class);
-
         StringJoiner whereClause = new StringJoiner(" AND ");
         List<Field> primaryKeyFields = new ArrayList<>();
 
@@ -80,18 +78,18 @@ public class DQL {
 
             Column column = field.getAnnotation(Column.class);
             if (field.isAnnotationPresent(PrimaryKey.class)) {
-                whereClause.add(String.format("p1.%s = ?", column.name()));
-                primaryKeyFields.add(field);
-
                 field.setAccessible(true);
                 if (Objects.isNull(field.get(entity))) {
-                    throw new IllegalArgumentException("Valor do @PrimaryKey é nulo");
+                    whereClause.add(String.format("p1.%s IS NULL", column.name()));
+                } else {
+                    whereClause.add(String.format("p1.%s = ?", column.name()));
+                    primaryKeyFields.add(field);
                 }
             }
         }
 
         if (primaryKeyFields.isEmpty()) {
-            throw new IllegalArgumentException("Classe sem @PrimaryKey");
+            throw new IllegalArgumentException("Class without @PrimaryKey");
         }
 
         List<T> result;

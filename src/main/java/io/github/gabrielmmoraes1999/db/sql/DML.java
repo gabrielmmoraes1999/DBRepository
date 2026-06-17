@@ -98,8 +98,13 @@ public class DML {
 
             Column column = field.getAnnotation(Column.class);
             if (field.isAnnotationPresent(PrimaryKey.class)) {
-                whereClause.add(String.format("%s = ?", column.name()));
-                primaryKeyFields.add(field);
+                field.setAccessible(true);
+                if (Objects.isNull(field.get(entity))) {
+                    whereClause.add(String.format("%s IS NULL", column.name()));
+                } else {
+                    whereClause.add(String.format("%s = ?", column.name()));
+                    primaryKeyFields.add(field);
+                }
             } else {
                 setClause.add(String.format("%s = ?", column.name()));
                 updateFields.add(field);
@@ -107,15 +112,7 @@ public class DML {
         }
 
         if (primaryKeyFields.isEmpty()) {
-            throw new IllegalArgumentException("Classe sem @PrimaryKey");
-        }
-
-        for (Field field : primaryKeyFields) {
-            field.setAccessible(true);
-
-            if (Objects.isNull(field.get(entity))) {
-                throw new IllegalArgumentException("Valor do @PrimaryKey é nulo");
-            }
+            throw new IllegalArgumentException("Class without @PrimaryKey");
         }
 
         fields.addAll(updateFields);
@@ -185,7 +182,7 @@ public class DML {
         }
 
         if (fields.isEmpty()) {
-            throw new IllegalArgumentException("Classe sem @PrimaryKey");
+            throw new IllegalArgumentException("Class without @PrimaryKey");
         }
 
         if (id instanceof List) {
@@ -221,7 +218,7 @@ public class DML {
 
         Class<?> childClass = SQLUtils.getCollectionGenericType(oneToManyField);
         if (!childClass.isAnnotationPresent(Table.class)) {
-            throw new RuntimeException("Classe filha sem @Table");
+            throw new RuntimeException("Child class without @Table");
         }
 
         Table table = childClass.getAnnotation(Table.class);
@@ -234,7 +231,7 @@ public class DML {
             Field parentField = SQLUtils.findFieldByColumn(entity, joinColumn.referencedColumnName());
 
             if (parentField == null) {
-                throw new RuntimeException("Campo não encontrado: " + joinColumn.referencedColumnName());
+                throw new RuntimeException("Field not found: " + joinColumn.referencedColumnName());
             }
 
             parentField.setAccessible(true);
