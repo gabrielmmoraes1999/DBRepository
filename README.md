@@ -7,15 +7,64 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>2.1.2</version>
+    <version>2.1.3</version>
 </dependency>
 ```
 
 Veja a Wiki https://github.com/gabrielmmoraes1999/DBRepository/wiki, para ter um Tutorial Completo.
 
+## Exemplo rápido
+
+```java
+@Table(name = "USERS")
+public class User {
+    @PrimaryKey
+    @Column(name = "ID")
+    private Integer id;
+
+    @Column(name = "NAME")
+    private String name;
+
+    // getters/setters
+}
+
+public interface UserRepository extends DBRepository<User, Integer> {
+    List<User> findByName(String name);
+
+    long countByAgeGreaterThan(Integer age);
+
+    @Query("SELECT * FROM USERS WHERE NAME = :name")
+    List<User> searchByName(@Param("name") String name);
+}
+
+// Conexão global (adequada para apps single-thread / desktop)
+DataBase.createConnection("jdbc:h2:mem:demo", "sa", "");
+UserRepository repository = Repository.createRepository(UserRepository.class);
+
+User user = new User();
+user.setId(1);
+user.setName("Ana");
+repository.insert(user);
+
+List<User> users = repository.findByName("Ana");
+```
+
+### Conexão e thread-safety
+
+- **Sem pool:** `DataBase.createConnection(...)` guarda uma conexão JDBC estática. Use em cenários single-thread, ou passe uma `Connection` explícita em `Repository.createRepository(iface, connection)`.
+- **Com pool:** configure um `HikariDataSource` via `ConnectionPoolManager.setHikariDataSource(...)`. Cada chamada do repositório obtém e devolve uma conexão do pool.
+- O mapa interno de autocommit usa `ConcurrentHashMap`, mas a conexão global única ainda não é segura para uso concorrente sem sincronização externa.
+
 ________________________________________________________________________________________________
 
 # Histórico de Versões
+
+## v2.1.3 - 05/08/2026
+- Corrigido retorno `JSONArray` em consultas derivadas (`findBy*`).
+- Corrigido binding e expansão de `IN` / `NOT IN` com múltiplos parâmetros.
+- Habilitados métodos derivados `countBy*`, `existsBy*`, `deleteBy*` / `removeBy*`.
+- Endurecida a gestão de conexão (`ConcurrentHashMap` e log em falhas de `disconnect`).
+- Adicionados testes (JUnit 5 + H2) e pipeline CI.
 
 ## v2.1.2 - 16/06/2026
 - Removido a Exception quando a chave primaria for nula.

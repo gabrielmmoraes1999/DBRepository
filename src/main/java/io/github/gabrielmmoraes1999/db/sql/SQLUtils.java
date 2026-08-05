@@ -107,41 +107,58 @@ public class SQLUtils {
         }
     }
 
-    public static void setPreparedStatement(PreparedStatement preparedStatement, int position, Object value) throws SQLException {
+    /**
+     * Binds a value starting at {@code position} and returns the next free position.
+     * Collections expand to one placeholder per element.
+     */
+    public static int setPreparedStatement(PreparedStatement preparedStatement, int position, Object value) throws SQLException {
         if (Objects.isNull(value)) {
             preparedStatement.setObject(position, null);
-        } else {
-            Class<?> classType = value.getClass();
+            return position + 1;
+        }
 
-            if (classType == Integer.class) {
-                preparedStatement.setInt(position, (Integer) value);
-            } else if (classType == Double.class) {
-                preparedStatement.setDouble(position, (Double) value);
-            } else if (classType == BigDecimal.class) {
-                preparedStatement.setBigDecimal(position, (BigDecimal) value);
-            } else if (classType == Boolean.class) {
-                preparedStatement.setBoolean(position, (Boolean) value);
-            } else if (classType == String.class) {
-                preparedStatement.setString(position, (String) value);
-            } else if (classType == Date.class) {
-                preparedStatement.setDate(position, (Date) value);
-            } else if (classType == Timestamp.class) {
-                preparedStatement.setTimestamp(position, (Timestamp) value);
-            } else if (classType == Time.class) {
-                preparedStatement.setTime(position, (Time) value);
-            } else if (classType == byte[].class) {
-                preparedStatement.setBytes(position, (byte[]) value);
-            } else if (classType.isEnum()) {
-                preparedStatement.setInt(position, ((Enum<?>) value).ordinal());
-            } else if (Collection.class.isAssignableFrom(classType)) {
-                int index = 1;
-                for (Object valueCollection : (Collection<?>) value) {
-                    preparedStatement.setObject(index, valueCollection);
-                    index++;
-                }
-            } else {
-                preparedStatement.setObject(position, value);
+        Class<?> classType = value.getClass();
+
+        if (classType == Integer.class) {
+            preparedStatement.setInt(position, (Integer) value);
+            return position + 1;
+        } else if (classType == Double.class) {
+            preparedStatement.setDouble(position, (Double) value);
+            return position + 1;
+        } else if (classType == BigDecimal.class) {
+            preparedStatement.setBigDecimal(position, (BigDecimal) value);
+            return position + 1;
+        } else if (classType == Boolean.class) {
+            preparedStatement.setBoolean(position, (Boolean) value);
+            return position + 1;
+        } else if (classType == String.class) {
+            preparedStatement.setString(position, (String) value);
+            return position + 1;
+        } else if (classType == Date.class) {
+            preparedStatement.setDate(position, (Date) value);
+            return position + 1;
+        } else if (classType == Timestamp.class) {
+            preparedStatement.setTimestamp(position, (Timestamp) value);
+            return position + 1;
+        } else if (classType == Time.class) {
+            preparedStatement.setTime(position, (Time) value);
+            return position + 1;
+        } else if (classType == byte[].class) {
+            preparedStatement.setBytes(position, (byte[]) value);
+            return position + 1;
+        } else if (classType.isEnum()) {
+            preparedStatement.setInt(position, ((Enum<?>) value).ordinal());
+            return position + 1;
+        } else if (Collection.class.isAssignableFrom(classType)) {
+            int index = position;
+            for (Object valueCollection : (Collection<?>) value) {
+                preparedStatement.setObject(index, valueCollection);
+                index++;
             }
+            return index;
+        } else {
+            preparedStatement.setObject(position, value);
+            return position + 1;
         }
     }
 

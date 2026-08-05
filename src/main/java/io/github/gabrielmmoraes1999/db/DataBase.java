@@ -3,14 +3,18 @@ package io.github.gabrielmmoraes1999.db;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class DataBase {
 
+    private static final Logger LOGGER = Logger.getLogger(DataBase.class.getName());
+
     protected static Connection conn;
-    protected static Map<Connection, Boolean> autoCommitMap = new HashMap<>();
+    protected static Map<Connection, Boolean> autoCommitMap = new ConcurrentHashMap<>();
 
     public static void createConnection(String url) throws SQLException {
         conn = getConnection(url);
@@ -112,18 +116,18 @@ public class DataBase {
 
             conn.commit();
             conn.close();
-        } catch (SQLException ignore) {
-
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "Falha ao desconectar a conexão global", e);
         }
     }
 
     public static void disconnect(Connection connection) {
         try {
-            autoCommitMap.remove(connection);
-
             if (connection == null) {
                 return;
             }
+
+            autoCommitMap.remove(connection);
 
             if (connection.isClosed()) {
                 return;
@@ -131,8 +135,8 @@ public class DataBase {
 
             connection.commit();
             connection.close();
-        } catch (SQLException ignore) {
-
+        } catch (SQLException e) {
+            LOGGER.log(Level.WARNING, "Falha ao desconectar a conexão", e);
         }
     }
 
