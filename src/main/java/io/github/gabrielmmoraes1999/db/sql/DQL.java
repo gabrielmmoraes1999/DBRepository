@@ -4,6 +4,7 @@ import io.github.gabrielmmoraes1999.db.annotation.*;
 import io.github.gabrielmmoraes1999.db.core.EntityBuilder;
 import io.github.gabrielmmoraes1999.db.parse.MethodNameParser;
 import io.github.gabrielmmoraes1999.db.parse.ParsedQuery;
+import io.github.gabrielmmoraes1999.db.parse.QueryType;
 import io.github.gabrielmmoraes1999.db.parse.SqlRenderer;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -95,10 +96,10 @@ public class DQL {
         List<T> result;
         String sql = String.format("%s WHERE %s", SqlRenderer.toSql(null, null, entityClass), whereClause);
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-            for (int i = 0; i < primaryKeyFields.size(); i++) {
-                Field field = primaryKeyFields.get(i);
+            int position = 1;
+            for (Field field : primaryKeyFields) {
                 field.setAccessible(true);
-                SQLUtils.setPreparedStatement(preparedStatement, i + 1, field.get(entity));
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, field.get(entity));
             }
 
             result = EntityBuilder.build(entityClass, preparedStatement);
@@ -119,16 +120,32 @@ public class DQL {
             throw new IllegalArgumentException("The class does not have the annotation @Table.");
         }
 
+        Object[] safeArgs = args != null ? args : new Object[0];
+        ParsedQuery query = MethodNameParser.parse(methodName);
+
+        if (query.type == QueryType.COUNT) {
+            return executeCount(entityClass, query, safeArgs, connection, returnClass);
+        }
+
+        if (query.type == QueryType.EXISTS) {
+            return executeExists(entityClass, query, safeArgs, connection, returnClass);
+        }
+
+        if (query.type == QueryType.DELETE) {
+            return executeDelete(entityClass, query, safeArgs, connection, returnClass);
+        }
+
+        return executeSelect(entityClass, query, safeArgs, connection, returnClass);
+    }
+
+    private static <T> Object executeSelect(Class<T> entityClass, ParsedQuery query, Object[] args, Connection connection, Class<?> returnClass) throws SQLException, NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException {
         T resultClass = null;
         List<T> resultList = new ArrayList<>();
         JSONObject jsonObject = new JSONObject();
         JSONArray jsonArray = new JSONArray();
 
-        ParsedQuery query = MethodNameParser.parse(methodName);
-        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(query, args[0], entityClass))) {
-            for (int i = 0; i < args.length; i++) {
-                SQLUtils.setPreparedStatement(preparedStatement, i + 1, args[i]);
-            }
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(query, args, entityClass))) {
+            bindArgs(preparedStatement, args);
 
             if (returnClass.isAssignableFrom(JSONObject.class) || returnClass.isAssignableFrom(JSONArray.class)) {
                 try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -143,13 +160,13 @@ public class DQL {
                         }
                     } else if (returnClass.isAssignableFrom(JSONArray.class)) {
                         while (resultSet.next()) {
-                            JSONObject jsonObjectRow = new JSONObject();
+                            JSONObject jsonObjectProp = new JSONObject();
 
                             for (int i = 1; i <= columnCount; i++) {
-                                jsonObject.put(metaData.getColumnLabel(i), resultSet.getObject(i));
+                                jsonObjectProp.put(metaData.getColumnLabel(i), resultSet.getObject(i));
                             }
 
-                            jsonArray.put(jsonObjectRow);
+                            jsonArray.put(jsonObjectProp);
                         }
                     }
                 }
@@ -174,6 +191,65 @@ public class DQL {
             return jsonArray;
         } else {
             return null;
+        }
+    }
+
+    private static <T> Object executeCount(Class<T> entityClass, ParsedQuery query, Object[] args, Connection connection, Class<?> returnClass) throws SQLException {
+        long count;
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(query, args, entityClass))) {
+            bindArgs(preparedStatement, args);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                resultSet.next();
+                count = resultSet.getLong(1);
+            }
+        }
+
+        if (returnClass == long.class || returnClass == Long.class) {
+            return count;
+        }
+        if (returnClass == int.class || returnClass == Integer.class) {
+            return (int) count;
+        }
+        return count;
+    }
+
+    private static <T> Object executeExists(Class<T> entityClass, ParsedQuery query, Object[] args, Connection connection, Class<?> returnClass) throws SQLException {
+        long count;
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(query, args, entityClass))) {
+            bindArgs(preparedStatement, args);
+            try (ResultSet resultSet = preparedStatement.executeQuery()) {
+                resultSet.next();
+                count = resultSet.getLong(1);
+            }
+        }
+
+        boolean exists = count > 0;
+        if (returnClass == boolean.class || returnClass == Boolean.class) {
+            return exists;
+        }
+        return exists;
+    }
+
+    private static <T> Object executeDelete(Class<T> entityClass, ParsedQuery query, Object[] args, Connection connection, Class<?> returnClass) throws SQLException {
+        int deleted;
+        try (PreparedStatement preparedStatement = connection.prepareStatement(SqlRenderer.toSql(query, args, entityClass))) {
+            bindArgs(preparedStatement, args);
+            deleted = preparedStatement.executeUpdate();
+        }
+
+        if (returnClass == void.class || returnClass == Void.class) {
+            return null;
+        }
+        if (returnClass == long.class || returnClass == Long.class) {
+            return (long) deleted;
+        }
+        return deleted;
+    }
+
+    private static void bindArgs(PreparedStatement preparedStatement, Object[] args) throws SQLException {
+        int position = 1;
+        for (Object arg : args) {
+            position = SQLUtils.setPreparedStatement(preparedStatement, position, arg);
         }
     }
 

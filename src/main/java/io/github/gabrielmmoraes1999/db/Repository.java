@@ -1,6 +1,7 @@
 package io.github.gabrielmmoraes1999.db;
 
 import io.github.gabrielmmoraes1999.db.annotation.*;
+import io.github.gabrielmmoraes1999.db.parse.MethodNameParser;
 import io.github.gabrielmmoraes1999.db.sql.*;
 import io.github.gabrielmmoraes1999.db.util.*;
 import org.json.JSONArray;
@@ -175,7 +176,7 @@ public class Repository<T, ID> implements InvocationHandler {
                     break;
             }
 
-            if (nameMethod.startsWith("findBy")) {
+            if (isDerivedQueryMethod(nameMethod)) {
                 returnObject = DQL.handleMethod(entityClass, method, args, connection);
 
                 DataBase.commit(connection);
@@ -198,6 +199,15 @@ public class Repository<T, ID> implements InvocationHandler {
         }
 
         throw new UnsupportedOperationException("Unsupported method: " + method.getName());
+    }
+
+    private static boolean isDerivedQueryMethod(String nameMethod) {
+        try {
+            MethodNameParser.parse(nameMethod);
+            return true;
+        } catch (IllegalArgumentException ignore) {
+            return false;
+        }
     }
 
     private Integer insertAll(List<T> entityList, Connection connection) throws SQLException, IllegalAccessException {

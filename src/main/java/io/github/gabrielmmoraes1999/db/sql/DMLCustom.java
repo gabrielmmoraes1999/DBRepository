@@ -36,8 +36,7 @@ public class DMLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             result = preparedStatement.executeUpdate();
@@ -68,8 +67,7 @@ public class DMLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             result = preparedStatement.executeUpdate();

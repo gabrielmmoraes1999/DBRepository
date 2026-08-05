@@ -37,8 +37,7 @@ public class DQLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             results = EntityBuilder.buildSimple(entityClass, preparedStatement);
@@ -73,8 +72,7 @@ public class DQLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             results = EntityBuilder.buildSimple(entityClass, preparedStatement);
@@ -105,8 +103,7 @@ public class DQLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -149,8 +146,7 @@ public class DQLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -197,8 +193,7 @@ public class DQLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -241,8 +236,7 @@ public class DQLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -289,8 +283,7 @@ public class DQLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
@@ -326,8 +319,7 @@ public class DQLCustom {
 
             int position = 1;
             for (Object object : bindValues) {
-                SQLUtils.setPreparedStatement(preparedStatement, position, object);
-                position++;
+                position = SQLUtils.setPreparedStatement(preparedStatement, position, object);
             }
 
             try (ResultSet resultSet = preparedStatement.executeQuery()) {
