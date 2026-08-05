@@ -107,10 +107,6 @@ public class SQLUtils {
         }
     }
 
-    /**
-     * Binds a value starting at {@code position} and returns the next free position.
-     * Collections expand to one placeholder per element.
-     */
     public static int setPreparedStatement(PreparedStatement preparedStatement, int position, Object value) throws SQLException {
         if (Objects.isNull(value)) {
             preparedStatement.setObject(position, null);
