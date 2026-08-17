@@ -28,8 +28,11 @@ public class ConnectionPoolManager {
     }
 
     public static void close() {
-        if (hikariDataSource != null)
-            hikariDataSource.close();
+        if (hikariDataSource != null) {
+            if (hikariDataSource.isClosed()) {
+                hikariDataSource.close();
+            }
+        }
     }
 
 }

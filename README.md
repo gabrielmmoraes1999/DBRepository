@@ -59,6 +59,9 @@ ________________________________________________________________________________
 
 # Histórico de Versões
 
+## v2.1.4 - 17/08/2026
+- Corrigido erro de `auto-commit`.
+
 ## v2.1.3 - 05/08/2026
 - Corrigido retorno `JSONArray` em consultas derivadas (`findBy*`).
 - Corrigido binding e expansão de `IN` / `NOT IN` com múltiplos parâmetros.

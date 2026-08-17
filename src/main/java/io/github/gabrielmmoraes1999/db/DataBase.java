@@ -114,7 +114,10 @@ public class DataBase {
                 return;
             }
 
-            conn.commit();
+            if (!conn.getAutoCommit()) {
+                conn.commit();
+            }
+
             conn.close();
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "Falha ao desconectar a conexão global", e);
@@ -133,7 +136,10 @@ public class DataBase {
                 return;
             }
 
-            connection.commit();
+            if (!connection.getAutoCommit()) {
+                connection.commit();
+            }
+
             connection.close();
         } catch (SQLException e) {
             LOGGER.log(Level.WARNING, "Falha ao desconectar a conexão", e);
