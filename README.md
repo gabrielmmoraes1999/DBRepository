@@ -59,6 +59,9 @@ ________________________________________________________________________________
 
 # Histórico de Versões
 
+## v2.1.5 - 29/08/2026
+- Corrigido situação de não encerrar as conexoes do ConnectionPoolManager.
+
 ## v2.1.4 - 17/08/2026
 - Corrigido erro de `auto-commit`.
 
