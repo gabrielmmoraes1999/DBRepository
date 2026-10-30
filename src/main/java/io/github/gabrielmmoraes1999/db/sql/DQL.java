@@ -72,6 +72,7 @@ public class DQL {
         StringJoiner whereClause = new StringJoiner(" AND ");
         List<Field> primaryKeyFields = new ArrayList<>();
 
+        boolean existsPrimaryKey = false;
         for (Field field : entityClass.getDeclaredFields()) {
             if (!field.isAnnotationPresent(Column.class)) {
                 continue;
@@ -80,6 +81,8 @@ public class DQL {
             Column column = field.getAnnotation(Column.class);
             if (field.isAnnotationPresent(PrimaryKey.class)) {
                 field.setAccessible(true);
+                existsPrimaryKey = true;
+
                 if (Objects.isNull(field.get(entity))) {
                     whereClause.add(String.format("p1.%s IS NULL", column.name()));
                 } else {
@@ -89,7 +92,7 @@ public class DQL {
             }
         }
 
-        if (primaryKeyFields.isEmpty()) {
+        if (!existsPrimaryKey) {
             throw new IllegalArgumentException("Class without @PrimaryKey");
         }
 

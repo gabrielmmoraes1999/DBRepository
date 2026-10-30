@@ -7,7 +7,7 @@ Importação da biblioteca:
 <dependency>
     <groupId>io.github.gabrielmmoraes1999</groupId>
     <artifactId>DBRepository</artifactId>
-    <version>2.1.5</version>
+    <version>2.1.6</version>
 </dependency>
 ```
 
@@ -58,6 +58,9 @@ List<User> users = repository.findByName("Ana");
 ________________________________________________________________________________________________
 
 # Histórico de Versões
+
+## v2.1.6 - 30/10/2026
+- Corrigido o erro quando tentava consultar usando a função `findById` com o valor `null`.
 
 ## v2.1.5 - 29/08/2026
 - Corrigido situação de não encerrar as conexoes do ConnectionPoolManager.

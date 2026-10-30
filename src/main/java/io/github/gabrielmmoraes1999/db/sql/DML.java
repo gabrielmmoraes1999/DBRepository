@@ -89,6 +89,7 @@ public class DML {
         List<Field> primaryKeyFields = new ArrayList<>();
         List<Field> fields = new ArrayList<>();
 
+        boolean existsPrimaryKey = false;
         for (Field field : entityClass.getDeclaredFields()) {
             field.setAccessible(true);
 
@@ -99,6 +100,8 @@ public class DML {
             Column column = field.getAnnotation(Column.class);
             if (field.isAnnotationPresent(PrimaryKey.class)) {
                 field.setAccessible(true);
+                existsPrimaryKey = true;
+
                 if (Objects.isNull(field.get(entity))) {
                     whereClause.add(String.format("%s IS NULL", column.name()));
                 } else {
@@ -111,7 +114,7 @@ public class DML {
             }
         }
 
-        if (primaryKeyFields.isEmpty()) {
+        if (!existsPrimaryKey) {
             throw new IllegalArgumentException("Class without @PrimaryKey");
         }
 
